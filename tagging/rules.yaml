@@ -1,0 +1,119 @@
+# Auto-tagging rules for archive entries
+# Rules are evaluated in order; all matching rules apply their tags.
+
+version: "1.0"
+
+rules:
+  # Build outcome tags
+  - name: successful-build
+    condition:
+      field: build_success
+      equals: true
+    tags: ["successful-build"]
+
+  - name: failed-build
+    condition:
+      field: build_success
+      equals: false
+    tags: ["failed-build", "needs-review"]
+
+  # Duration-based tags
+  - name: long-build
+    condition:
+      field: build_duration_seconds
+      greater_than: 900  # 15 minutes
+    tags: ["long-build"]
+
+  - name: quick-build
+    condition:
+      field: build_duration_seconds
+      less_than: 120  # 2 minutes
+    tags: ["quick-build"]
+
+  # Cross-repo changes
+  - name: cross-repo-change
+    condition:
+      field: repos_changed_count
+      greater_than: 2
+    tags: ["cross-repo"]
+
+  # Session complexity
+  - name: heavy-session
+    condition:
+      field: tool_call_count
+      greater_than: 100
+    tags: ["heavy-session"]
+
+  - name: light-session
+    condition:
+      field: tool_call_count
+      less_than: 10
+    tags: ["light-session"]
+
+  # File type tags
+  - name: css-changes
+    condition:
+      field: files_modified
+      matches_any: ["*.css"]
+    tags: ["visual-change", "css-modified"]
+
+  - name: js-changes
+    condition:
+      field: files_modified
+      matches_any: ["*.js"]
+    tags: ["visual-change", "js-modified"]
+
+  - name: lean-toolchain
+    condition:
+      field: files_modified
+      matches_any: ["*/Dress/*.lean", "*/Runway/*.lean", "*/LeanArchitect/*.lean"]
+    tags: ["toolchain-change"]
+
+  - name: subverso-changes
+    condition:
+      field: files_modified
+      matches_any: ["*/subverso/*"]
+    tags: ["subverso-change"]
+
+  - name: verso-changes
+    condition:
+      field: files_modified
+      matches_any: ["*/verso/*"]
+    tags: ["verso-change"]
+
+  # Trigger-based tags
+  - name: from-build
+    condition:
+      field: trigger
+      equals: "build"
+    tags: ["from-build"]
+
+  - name: from-skill
+    condition:
+      field: trigger
+      equals: "skill"
+    tags: ["from-skill"]
+
+  - name: manual-upload
+    condition:
+      field: trigger
+      equals: "manual"
+    tags: ["manual-upload"]
+
+  # Planning activity
+  - name: has-plans
+    condition:
+      field: plan_count
+      greater_than: 0
+    tags: ["has-plans"]
+
+# Python hooks for complex analysis
+# Hooks receive (entry: ArchiveEntry, sessions: list[SessionData]) and return list[str]
+hooks:
+  - name: cli-arg-misfires
+    module: cli_arg_misfires
+    function: detect_misfires
+
+  - name: session-quality
+    module: session_quality
+    function: assess_quality

@@ -17,6 +17,7 @@
 | `sbs rubric evaluate <id>` | Evaluate against a rubric |
 | `sbs archive list` | List archive entries |
 | `sbs archive show <id>` | Show entry details |
+| `sbs archive upload` | Extract ~/.claude data and archive |
 | `sbs archive charts` | Generate visualizations |
 | `sbs archive sync` | Sync to iCloud |
 
@@ -172,6 +173,129 @@ Archive data syncs to iCloud on every build:
 ```
 
 Sync is non-blocking - failures are logged but don't break builds.
+
+---
+
+## Archive Upload System
+
+The archive upload system extracts Claude Code interaction data and maintains a complete record of development sessions.
+
+### Single Command
+
+```bash
+sbs archive upload
+```
+
+This command:
+1. Extracts relevant data from `~/.claude`
+2. Creates an archive entry with session data
+3. Applies auto-tagging rules
+4. Commits and pushes all repos (porcelain guarantee)
+5. Syncs to iCloud
+
+### Options
+
+```bash
+sbs archive upload --dry-run          # Show what would be done
+sbs archive upload --project SBSTest  # Associate with project
+sbs archive upload --trigger manual   # Set trigger type (build/manual/skill)
+```
+
+### Data Extracted from ~/.claude
+
+| Source | Content | Storage |
+|--------|---------|---------|
+| `projects/*SBS*/` | Sessions, tool calls | `claude_data/sessions/` |
+| `plans/*.md` | Plan files | `claude_data/plans/` |
+| Tool results | Aggregated statistics | `claude_data/tool_calls/` |
+
+### Auto-Tagging
+
+Tags are applied automatically via:
+1. **Declarative rules** in `tagging/rules.yaml`
+2. **Python hooks** in `tagging/hooks/`
+
+#### Rules Format
+
+```yaml
+rules:
+  - name: successful-build
+    condition:
+      field: build_success
+      equals: true
+    tags: ["successful-build"]
+
+  - name: toolchain-change
+    condition:
+      field: files_modified
+      matches_any: ["*/Dress/*.lean", "*/Runway/*.lean"]
+    tags: ["toolchain-change"]
+```
+
+#### Available Operators
+
+| Operator | Description |
+|----------|-------------|
+| `equals` | Exact match |
+| `not_equals` | Not equal |
+| `greater_than` | Numeric comparison |
+| `less_than` | Numeric comparison |
+| `contains` | String/list contains |
+| `matches_any` | Glob pattern match |
+| `is_empty` | Check if empty |
+
+#### Writing Hooks
+
+Hooks receive `(entry, sessions)` and return a list of tags:
+
+```python
+# tagging/hooks/my_hook.py
+def analyze(entry, sessions):
+    tags = []
+    if some_condition(sessions):
+        tags.append("my-tag")
+    return tags
+```
+
+### Build Integration
+
+Archive upload runs automatically at the end of every build:
+
+```bash
+./dev/build-sbs-test.sh  # Triggers archive upload with build context
+```
+
+Build context passed to tagging:
+- `build_success`: Whether build succeeded
+- `build_duration_seconds`: Total build time
+- `repos_changed`: List of repos with new commits
+
+### Porcelain Guarantee
+
+After upload, all repos are in clean state:
+- Main repo committed and pushed
+- All submodules committed and pushed
+- No uncommitted changes anywhere
+
+### Storage Structure
+
+```
+dev/storage/
+├── claude_data/           # Extracted ~/.claude data
+│   ├── sessions/          # Parsed session JSON
+│   │   ├── {session_id}.json
+│   │   └── index.json
+│   ├── plans/             # Copied plan files
+│   ├── tool_calls/
+│   │   └── summary.json
+│   └── extraction_state.json
+└── tagging/
+    ├── rules.yaml         # Declarative rules
+    └── hooks/             # Python hooks
+        ├── __init__.py
+        ├── cli_arg_misfires.py
+        └── session_quality.py
+```
 
 ---
 
