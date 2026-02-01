@@ -63,7 +63,7 @@ A rubric contains:
 ### Storage
 
 ```
-archive/rubrics/
+dev/storage/rubrics/
 ├── index.json              # Registry of all rubrics
 ├── {rubric-id}.json        # Rubric definition
 ├── {rubric-id}.md          # Human-readable (auto-generated)
@@ -91,7 +91,7 @@ Central archive for build data, screenshots, and metrics.
 ### Directory Structure
 
 ```
-archive/
+dev/storage/
 ├── unified_ledger.json     # Build metrics and timing (single source of truth)
 ├── lifetime_stats.json     # Cross-run aggregates
 ├── archive_index.json      # Entry index with tags/notes
@@ -182,12 +182,15 @@ Visual compliance validation using AI vision analysis.
 ### Workflow
 
 ```bash
-# 1. Build project
-cd /Users/eric/GitHub/Side-By-Side-Blueprint/SBS-Test
-python ../scripts/build.py
+# 1. Build project (from monorepo root)
+./dev/build-sbs-test.sh
+
+# Or from project directory
+cd /Users/eric/GitHub/Side-By-Side-Blueprint/toolchain/SBS-Test
+python ../../dev/scripts/build.py
 
 # 2. Capture screenshots
-cd ../scripts
+cd /Users/eric/GitHub/Side-By-Side-Blueprint/dev/scripts
 sbs capture --project SBSTest --interactive
 
 # 3. Run compliance
@@ -314,10 +317,10 @@ See `scripts/sbs/tests/SCORING_RUBRIC.md` for detailed methodology.
 
 | Document | Purpose |
 |----------|---------|
-| [`dev/scripts/VISUAL_COMPLIANCE.md`](../dev/scripts/VISUAL_COMPLIANCE.md) | Visual compliance workflow and criteria |
-| [`dev/scripts/sbs/tests/SCORING_RUBRIC.md`](../dev/scripts/sbs/tests/SCORING_RUBRIC.md) | Quality scoring methodology |
-| [`.claude/skills/execute/SKILL.md`](../.claude/skills/execute/SKILL.md) | Execute skill with grab-bag mode |
-| [`.claude/agents/sbs-developer.md`](../.claude/agents/sbs-developer.md) | Development agent guide |
-| [`dev/markdowns/README.md`](../dev/markdowns/README.md) | Project overview |
-| [`dev/markdowns/ARCHITECTURE.md`](../dev/markdowns/ARCHITECTURE.md) | Architecture documentation |
-| [`dev/markdowns/GOALS.md`](../dev/markdowns/GOALS.md) | Project goals and vision |
+| [`dev/scripts/VISUAL_COMPLIANCE.md`](../scripts/VISUAL_COMPLIANCE.md) | Visual compliance workflow and criteria |
+| [`dev/scripts/sbs/tests/SCORING_RUBRIC.md`](../scripts/sbs/tests/SCORING_RUBRIC.md) | Quality scoring methodology |
+| [`.claude/skills/execute/SKILL.md`](../../.claude/skills/execute/SKILL.md) | Execute skill with grab-bag mode |
+| [`.claude/agents/sbs-developer.md`](../../.claude/agents/sbs-developer.md) | Development agent guide |
+| [`dev/markdowns/README.md`](../markdowns/README.md) | Project overview |
+| [`dev/markdowns/ARCHITECTURE.md`](../markdowns/ARCHITECTURE.md) | Architecture documentation |
+| [`dev/markdowns/GOALS.md`](../markdowns/GOALS.md) | Project goals and vision |
