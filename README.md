@@ -20,6 +20,8 @@
 | `sbs archive upload` | Extract ~/.claude data and archive |
 | `sbs archive charts` | Generate visualizations |
 | `sbs archive sync` | Sync to iCloud |
+| `sbs oracle compile` | Compile Oracle knowledge base from READMEs |
+| `sbs readme-check` | Check which READMEs need updating |
 
 **Run from:** `/Users/eric/GitHub/Side-By-Side-Blueprint/dev/scripts`
 
@@ -437,6 +439,91 @@ See `scripts/sbs/tests/SCORING_RUBRIC.md` for detailed methodology.
 
 ---
 
+## Oracle System
+
+The Oracle provides instant codebase Q&A for Claude agents without searching.
+
+### Compiling the Oracle
+
+```bash
+sbs oracle compile
+```
+
+This regenerates `dev/storage/oracle/knowledge_base.md` from all repository READMEs:
+- Main monorepo README
+- Per-repository READMEs (Dress, Runway, SubVerso, Verso, LeanArchitect, etc.)
+- Extracts key concepts, file locations, patterns, and gotchas
+
+### What the Oracle Knows
+
+- **Concept Index**: Concept -> file location mapping
+- **File Purpose Map**: One-liner summaries per file
+- **How-To Patterns**: Add CLI command, add validator, add hook, etc.
+- **Gotchas**: Status color source of truth, manual ToExpr, etc.
+- **Cross-Repo Impact**: What to check when changing X
+
+### Usage by Agents
+
+The `sbs-oracle` agent uses the compiled knowledge base to answer questions without searching:
+
+```
+Task(subagent_type="sbs-oracle", prompt="Where is graph layout implemented?")
+```
+
+### Auto-Regeneration
+
+The Oracle is auto-regenerated during `/update-and-archive` skill execution.
+
+---
+
+## README Staleness Detection
+
+Identifies which READMEs may need updating based on git state.
+
+### Commands
+
+```bash
+# Human-readable report
+sbs readme-check
+
+# JSON output for programmatic use
+sbs readme-check --json
+```
+
+### What It Checks
+
+For each repository (main + 10 submodules):
+- **Uncommitted changes**: Files modified but not committed
+- **Unpushed commits**: Commits not pushed to remote
+- **Changed files list**: Specific files that changed
+
+### Example Output
+
+```
+README Staleness Report
+=======================
+
+Main (Side-By-Side-Blueprint):
+  Status: has changes
+  Uncommitted: 3 files
+  Changed files:
+    - CLAUDE.md
+    - dev/scripts/sbs/cli.py
+
+Dress:
+  Status: clean
+
+Runway:
+  Status: has changes
+  Unpushed: 2 commits
+```
+
+### Integration with /update-and-archive
+
+The skill runs `sbs readme-check --json` to determine which repos have changes. Agents only update READMEs for repos with actual code changes, avoiding unnecessary documentation churn.
+
+---
+
 ## Related Documentation
 
 | Document | Purpose |
@@ -445,6 +532,7 @@ See `scripts/sbs/tests/SCORING_RUBRIC.md` for detailed methodology.
 | [`dev/scripts/sbs/tests/SCORING_RUBRIC.md`](../scripts/sbs/tests/SCORING_RUBRIC.md) | Quality scoring methodology |
 | [`.claude/skills/execute/SKILL.md`](../../.claude/skills/execute/SKILL.md) | Execute skill with grab-bag mode |
 | [`.claude/agents/sbs-developer.md`](../../.claude/agents/sbs-developer.md) | Development agent guide |
+| [`.claude/agents/sbs-oracle.md`](../../.claude/agents/sbs-oracle.md) | Oracle agent guide |
 | [`dev/markdowns/README.md`](../markdowns/README.md) | Project overview |
 | [`dev/markdowns/ARCHITECTURE.md`](../markdowns/ARCHITECTURE.md) | Architecture documentation |
 | [`dev/markdowns/GOALS.md`](../markdowns/GOALS.md) | Project goals and vision |
