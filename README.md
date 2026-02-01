@@ -20,7 +20,7 @@
 | `sbs archive charts` | Generate visualizations |
 | `sbs archive sync` | Sync to iCloud |
 
-**Run from:** `/Users/eric/GitHub/Side-By-Side-Blueprint/scripts`
+**Run from:** `/Users/eric/GitHub/Side-By-Side-Blueprint/dev/scripts`
 
 ---
 
@@ -314,7 +314,10 @@ See `scripts/sbs/tests/SCORING_RUBRIC.md` for detailed methodology.
 
 | Document | Purpose |
 |----------|---------|
-| [`scripts/VISUAL_COMPLIANCE.md`](../scripts/VISUAL_COMPLIANCE.md) | Visual compliance workflow and criteria |
-| [`scripts/sbs/tests/SCORING_RUBRIC.md`](../scripts/sbs/tests/SCORING_RUBRIC.md) | Quality scoring methodology |
+| [`dev/scripts/VISUAL_COMPLIANCE.md`](../dev/scripts/VISUAL_COMPLIANCE.md) | Visual compliance workflow and criteria |
+| [`dev/scripts/sbs/tests/SCORING_RUBRIC.md`](../dev/scripts/sbs/tests/SCORING_RUBRIC.md) | Quality scoring methodology |
 | [`.claude/skills/execute/SKILL.md`](../.claude/skills/execute/SKILL.md) | Execute skill with grab-bag mode |
 | [`.claude/agents/sbs-developer.md`](../.claude/agents/sbs-developer.md) | Development agent guide |
+| [`dev/markdowns/README.md`](../dev/markdowns/README.md) | Project overview |
+| [`dev/markdowns/ARCHITECTURE.md`](../dev/markdowns/ARCHITECTURE.md) | Architecture documentation |
+| [`dev/markdowns/GOALS.md`](../dev/markdowns/GOALS.md) | Project goals and vision |
