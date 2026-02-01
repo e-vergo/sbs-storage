@@ -412,7 +412,7 @@ result = validator.validate(context)
 
 ### Creating Custom Validators
 
-See `scripts/sbs/validators/base.py` for the `BaseValidator` class and `@register_validator` decorator.
+See `scripts/sbs/tests/validators/base.py` for the `BaseValidator` class and `@register_validator` decorator.
 
 ---
 
