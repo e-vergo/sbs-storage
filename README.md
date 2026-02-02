@@ -28,7 +28,7 @@
 
 ## Archive System
 
-Central archive for build data, screenshots, metrics, and workflow state.
+Central archive for build data, screenshots, metrics, workflow state, and PR tracking.
 
 **Naming:** The local directory is `dev/storage/` but conceptually referred to as "the archive" throughout the codebase. The iCloud backup location is `~/Library/Mobile Documents/com~apple~CloudDocs/SBS_archive/`.
 
@@ -80,6 +80,7 @@ Each build creates an `ArchiveEntry`:
 | `screenshots` | List of captured screenshots |
 | `repo_commits` | Git commits at build time (all repos) |
 | `issue_refs` | GitHub issue numbers linked to this entry |
+| `pr_refs` | GitHub PR numbers linked to this entry |
 | `synced_to_icloud` | Sync status |
 
 ### State Machine Fields
@@ -208,6 +209,7 @@ sbs archive upload --dry-run          # Show what would be done
 sbs archive upload --project SBSTest  # Associate with project
 sbs archive upload --trigger manual   # Set trigger type (build/manual/skill)
 sbs archive upload --issue-refs 42,43 # Link GitHub issues to entry
+sbs archive upload --pr-number 123    # Link GitHub PR to entry
 ```
 
 ### Data Extracted from ~/.claude
