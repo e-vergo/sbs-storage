@@ -200,6 +200,35 @@ sbs archive upload --trigger manual   # Set trigger type (build/manual/skill)
 | `plans/*.md` | Plan files | `claude_data/plans/` |
 | Tool results | Aggregated statistics | `claude_data/tool_calls/` |
 
+### Rich Data Extraction
+
+The extractor captures comprehensive data from Claude Code JSONL files:
+
+| Data | Source | Purpose |
+|------|--------|---------|
+| Thinking blocks | `message.content[].thinking` | Reasoning traces for prompting analysis |
+| Token usage | `message.usage.*` | Cost analysis, cache efficiency |
+| Model version | `message.model`, thinking signature | Version tracking |
+| Message threading | `parentUuid` chains | Conversation reconstruction |
+| Stop reasons | `message.stop_reason` | Completion analysis |
+| Session metadata | `sessions-index.json` | Slug, first prompt, summary |
+| Full tool inputs | `tool_use.input` | Pattern analysis (not truncated) |
+| Tool results | `tool_result.content` | Success/failure tracking |
+
+**Per-Session Data:**
+- `thinking_blocks`: List of reasoning traces with signatures
+- `message_usage`: Aggregated token counts (input, output, cache)
+- `model_versions`: Models used during session
+- `parent_uuid_chain`: Message threading for reconstruction
+- `stop_reasons`: How each response completed
+
+**Per-Snapshot Aggregates:**
+- `total_input_tokens`, `total_output_tokens`: Cost tracking
+- `cache_read_tokens`, `cache_creation_tokens`: Cache efficiency
+- `thinking_block_count`: Total reasoning traces
+- `model_versions_used`: All models across sessions
+- `unique_tools_used`: Distinct tools invoked
+
 ### Auto-Tagging
 
 Tags are applied automatically via:
