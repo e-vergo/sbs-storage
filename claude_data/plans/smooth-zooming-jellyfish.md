@@ -1,171 +1,159 @@
-# Task 2: Test Organization and Gate Validation
+# Task 3: Gate Enforcement, Test-Catalog Integration, and Archive Invariant Tests
 
 ## Summary
 
-Two major objectives:
-1. **Test Organization Infrastructure** - Three-tier system + tool catalog
-2. **Gate Validation Exercise** - Prove gates work (and understand their limits)
+Three objectives that stress-test the tooling's ability to handle its own complexity:
 
-**Critical Finding:** Gate enforcement is 100% agent-side. No code prevents bypassing gates - enforcement relies entirely on the agent following documented protocol.
+1. **Pre-Transition Gate Validation** - Move gate enforcement from agent compliance to code enforcement
+2. **Test-Catalog Integration** - Make TEST_CATALOG.md a first-class artifact in the Oracle and documentation
+3. **Archive Invariant Tests** - Pin down nebulous concepts from Archive_Orchestration_and_Agent_Harmony.md with testable assertions
+
+**Meta-goal:** If we can write tests for concepts like "agent harmony" and enforce gates in code, the system demonstrates it can specify and validate non-trivial requirements.
 
 ---
 
-## Part A: Test Organization Infrastructure
+## Design Decisions
 
-### A1: Three-Tier Test System
+### Task 1: Pre-Transition Gate Validation
 
-Add pytest markers to classify tests:
+| Question | Decision | Rationale |
+|----------|----------|-----------|
+| Where do gates live? | Parse from active plan file | Plans already contain YAML gate definitions; no new indirection |
+| No gates defined? | Permissive (allow with warning) | Don't break existing paths; not all transitions need gates |
+| Override mechanism? | `--force` flag | Emergency escape hatch; logged prominently |
+| Which transitions? | Only `/task` execution→finalization | `/update-and-archive` has different semantics |
 
-| Tier | Marker | Behavior | Examples |
-|------|--------|----------|----------|
-| **Evergreen** | `@pytest.mark.evergreen` | Always run, never skip | Core functionality, CLI basics |
-| **Dev** | `@pytest.mark.dev` | Toggle-able, state-clampable | Active development, WIP |
-| **Temporary** | `@pytest.mark.temporary` | Explicit discard flag | Experiments, debugging |
+### Task 2: Test-Catalog Integration
 
-**Files to modify:**
-- `dev/scripts/sbs/tests/pytest/conftest.py` - Add marker registration and filtering
-- `dev/scripts/sbs/tests/pytest/test_*.py` - Apply markers to existing tests (default: evergreen)
+- Add `dev/storage/TEST_CATALOG.md` to Oracle's ROOT_FILES
+- Document in CLAUDE.md, sbs-developer.md, dev/storage/README.md
 
-### A2: Tool Catalog Command
+### Task 3: Archive Invariant Tests
 
-New CLI command: `sbs test-catalog`
+Tests categorized by confidence level:
 
-```bash
-sbs test-catalog              # List all testable components
-sbs test-catalog --json       # Machine-readable output
-sbs test-catalog --tier dev   # Filter by tier
-```
+| Category | Needs Agent? | Examples |
+|----------|--------------|----------|
+| High-confidence | No | Entry immutability, schema consistency, single-skill invariant, phase ordering |
+| Medium-confidence | No | Epoch summary presence, tagging rules, ledger correspondence |
+| Low-confidence | Yes (hybrid) | Context injection relevance, "natural checkpoint" quality |
 
-**Output format:**
-```
-=== SBS Test Catalog ===
+---
 
-MCP Tools (11):
-  [✓] sbs_archive_state     Orchestration   Read-only
-  [✓] sbs_run_tests         Testing         Read-only
-  ...
+## Execution Waves
 
-Pytest Tests (283):
-  [evergreen] test_cli.py::test_archive_list_basic
-  [evergreen] test_cli.py::test_archive_list_empty
-  [dev]       test_new_feature.py::test_wip
-  ...
+### Wave 1: Foundation (Parallel-safe, single agent)
 
-CLI Commands (15):
-  [✓] sbs archive upload
-  [✓] sbs capture
-  ...
-```
+**Task 2 implementation:**
+- `dev/scripts/sbs/oracle/compiler.py` - Add TEST_CATALOG.md to ROOT_FILES
+- `CLAUDE.md` - Add TEST_CATALOG.md to Reference Documents table
+- `.claude/agents/sbs-developer.md` - Add to tooling section
+- `dev/storage/README.md` - Add link in Related Documentation
 
-**Files to create/modify:**
-- `dev/scripts/sbs/test_catalog/` - New module
-- `dev/scripts/sbs/cli.py` - Register command
+**Validation:** `sbs oracle compile` includes TEST_CATALOG concepts
 
-### A3: Tier-Aware Test Runner Enhancement
+### Wave 2: Gate Implementation (Sequential, single agent)
 
-Enhance `sbs_run_tests` MCP tool to support tier filtering:
+**Step 2A: Gate module**
+- New file: `dev/scripts/sbs/archive/gates.py`
+  - `GateDefinition` dataclass
+  - `parse_gates_from_plan()` - Extract YAML gates section
+  - `evaluate_test_gate()` - Run pytest, check threshold
+  - `evaluate_quality_gate()` - Run validators, check scores
+  - `check_gates()` - Combined evaluation
+
+**Step 2B: Upload integration**
+- Modify: `dev/scripts/sbs/archive/upload.py` (around line 402)
+  - Add `force` parameter
+  - Before `execution→finalization` transition:
+    - If `global_state.skill == "task"` and transitioning to finalization
+    - And not `force` flag
+    - Run gate checks; block if any fail
+
+**Step 2C: CLI flag**
+- Modify: `dev/scripts/sbs/archive/cmd.py`
+  - Add `--force` argument to upload subcommand
+
+**Validation:**
+- `sbs archive upload --help` shows `--force` flag
+- Gate failure blocks transition (test with intentional failure)
+
+### Wave 3: Test Suite (Single agent)
+
+**New file: `dev/scripts/sbs/tests/pytest/test_archive_invariants.py`**
 
 ```python
-sbs_run_tests(tier="evergreen")  # Only evergreen tests
-sbs_run_tests(tier="all")        # All tests including dev/temporary
+@pytest.mark.evergreen
+class TestEntryImmutability:
+    """Entries should not change after creation."""
+    def test_entry_hash_stable_after_save_reload()
+    def test_entry_fields_unchanged_after_index_reload()
+
+@pytest.mark.evergreen
+class TestSchemaConsistency:
+    """All entries must conform to ArchiveEntry schema."""
+    def test_required_fields_present()
+    def test_optional_fields_valid_types()
+    def test_state_fields_valid_enum_values()
+
+@pytest.mark.evergreen
+class TestSingleActiveSkillInvariant:
+    """Only one skill can be active at a time."""
+    def test_new_skill_requires_idle_state()
+    def test_phase_end_clears_global_state()
+
+@pytest.mark.evergreen
+class TestPhaseTransitionOrdering:
+    """Phase transitions must follow valid sequence."""
+    def test_alignment_before_planning()
+    def test_planning_before_execution()
+    def test_execution_before_finalization()
+
+@pytest.mark.evergreen
+class TestStateValueValidation:
+    """global_state must be null OR valid {skill, substate} dict."""
+    def test_null_is_valid_state()
+    def test_valid_skill_substate_dict()
+    def test_invalid_skill_name_rejected()
+
+@pytest.mark.evergreen
+class TestEpochSemantics:
+    """Epoch closing entries must include epoch_summary."""
+    def test_skill_trigger_includes_epoch_summary()
+    def test_last_epoch_entry_updated_on_close()
 ```
 
-**File to modify:**
-- `forks/sbs-lsp-mcp/src/sbs_lsp_mcp/sbs_tools.py` - Add tier parameter
+**New file: `dev/scripts/sbs/tests/pytest/test_gates.py`**
 
----
+```python
+@pytest.mark.evergreen
+class TestGateParsing:
+    def test_parse_complete_gate()
+    def test_parse_minimal_gate()
+    def test_parse_no_gates_section()
 
-## Part B: Gate Validation Exercise
+@pytest.mark.evergreen
+class TestGateEvaluation:
+    def test_all_pass_requirement()
+    def test_threshold_requirement()
+    def test_quality_score_gate()
 
-### B1: Intentionally Fail `sbs_run_tests`
+@pytest.mark.evergreen
+class TestGateEnforcement:
+    def test_gate_failure_blocks_transition()
+    def test_force_flag_bypasses_gate()
+    def test_non_task_skill_skips_gates()
+```
 
-**Setup:**
-1. Create a temporary failing test: `test_intentional_fail.py`
-   ```python
-   import pytest
+**Validation:** All new tests pass
 
-   @pytest.mark.temporary
-   def test_intentional_gate_failure():
-       """This test exists to validate gate enforcement."""
-       assert False, "Intentional failure for gate validation"
-   ```
+### Wave 4: Integration Testing (Orchestrator)
 
-**Exercise:**
-1. Run `sbs_run_tests()` - confirm failure reported
-2. Check that task skill would pause (manual verification)
-3. Inspect archive via `sbs_archive_state()` - confirm state still in `execution`
-4. Inspect `sbs_search_entries(tags=["from-skill"])` - verify entry captured
-
-**Verification:**
-- [ ] Test failure detected by `sbs_run_tests`
-- [ ] Archive state shows `{skill: "task", substate: "execution"}`
-- [ ] No transition to `finalization` occurred
-
-### B2: Intentionally Fail `sbs_validate_project`
-
-**Setup:**
-1. Define plan gate: `quality: {T5: >= 1.0}` (impossible threshold)
-2. Run `sbs_validate_project(project="SBSTest", validators=["T5"])`
-
-**Exercise:**
-1. Confirm T5 returns < 1.0 (normal score)
-2. Compare against plan threshold - gate fails
-3. Verify task would pause
-
-**Verification:**
-- [ ] Validator returns score < 1.0
-- [ ] Gate comparison logic would fail
-- [ ] Manual: agent should ask user for approval
-
-### B3: Archive Inspection
-
-After each failure, manually verify:
-
-1. **`sbs_archive_state()`** - Confirm:
-   - `global_state.skill == "task"`
-   - `global_state.substate == "execution"` (not `finalization`)
-
-2. **`sbs_search_entries(trigger="skill")`** - Confirm:
-   - Entry exists for current task
-   - No `state_transition: "phase_end"` entry yet
-
-3. **`sbs_epoch_summary()`** - Confirm:
-   - Entry count reflects current work
-   - No epoch closure
-
-### B4: Attempted Bypass (Limited Scope)
-
-**Goal:** Demonstrate that bypass IS possible (no code enforcement), document the gap.
-
-**Exercise:**
-1. With gates still failing, manually call:
-   ```bash
-   python3 -m sbs archive upload --trigger skill \
-     --global-state '{"skill":"task","substate":"finalization"}' \
-     --state-transition phase_start
-   ```
-2. Check `sbs_archive_state()` - confirm state changed to `finalization`
-3. **Conclusion:** Archive system accepts the transition despite failed gates
-
-**This proves:** Gate enforcement is a contract, not a technical barrier.
-
-### B5: Cleanup
-
-1. Delete `test_intentional_fail.py`
-2. Reset archive state:
-   ```bash
-   python3 -m sbs archive upload --trigger skill --state-transition phase_end
-   ```
-3. Verify `global_state` is `null`
-
----
-
-## Execution Strategy
-
-**Wave 1:** Test infrastructure (A1, A2, A3) - Single sbs-developer agent
-**Wave 2:** Gate validation (B1-B5) - Manual execution with orchestrator
-
-Wave 2 is intentionally NOT delegated to an agent - the orchestrator (top-level chat) should perform the validation exercise directly to properly verify behavior.
+Manual validation by orchestrator:
+1. Create plan with gates that will fail
+2. Attempt transition without `--force` → should block
+3. Attempt transition with `--force` → should succeed with warning
+4. Run full test suite: `sbs_run_tests()`
 
 ---
 
@@ -173,31 +161,55 @@ Wave 2 is intentionally NOT delegated to an agent - the orchestrator (top-level 
 
 ```yaml
 gates:
-  tests: all_pass  # After removing intentional failure
+  tests: all_pass
+  quality:
+    T1: >= 1.0    # CLI commands work
+    T2: >= 0.9    # Ledger population
   regression: >= 0
 ```
 
 ---
 
-## Verification
+## Key Files
 
-1. `sbs test-catalog` command works
-2. Pytest markers applied and filterable
-3. Gate validation exercise documented with findings
-4. Intentional failure test deleted
-5. Archive state returned to `null`
+**New Files:**
+- `dev/scripts/sbs/archive/gates.py` - Gate validation logic
+- `dev/scripts/sbs/tests/pytest/test_archive_invariants.py` - Archive semantic tests
+- `dev/scripts/sbs/tests/pytest/test_gates.py` - Gate validation tests
+
+**Modified Files:**
+- `dev/scripts/sbs/oracle/compiler.py` - Add TEST_CATALOG.md (line 32-34)
+- `dev/scripts/sbs/archive/upload.py` - Gate checking (around line 402)
+- `dev/scripts/sbs/archive/cmd.py` - Add --force flag
+- `dev/scripts/sbs/tests/pytest/conftest.py` - New fixtures if needed
+- `CLAUDE.md` - Document TEST_CATALOG.md
+- `.claude/agents/sbs-developer.md` - Document TEST_CATALOG.md
+- `dev/storage/README.md` - Link to TEST_CATALOG.md
+
+**Reference Files:**
+- `dev/scripts/sbs/archive/entry.py` - ArchiveEntry/ArchiveIndex schema
+- `dev/markdowns/permanent/Archive_Orchestration_and_Agent_Harmony.md` - Source of invariants
+- `.claude/skills/task/SKILL.md` - Gate format (lines 88-99)
 
 ---
 
-## Key Files
+## Verification
 
-**Test Infrastructure:**
-- `dev/scripts/sbs/tests/pytest/conftest.py`
-- `dev/scripts/sbs/test_catalog/__init__.py` (new)
-- `dev/scripts/sbs/test_catalog/catalog.py` (new)
-- `dev/scripts/sbs/cli.py`
-- `forks/sbs-lsp-mcp/src/sbs_lsp_mcp/sbs_tools.py`
+| Wave | Check | Command |
+|------|-------|---------|
+| 1 | TEST_CATALOG in Oracle | `sbs oracle compile && grep TEST_CATALOG .claude/agents/sbs-oracle.md` |
+| 2 | Force flag exists | `sbs archive upload --help \| grep force` |
+| 2 | Gates block transition | Manual test with failing gate |
+| 3 | Invariant tests pass | `pytest test_archive_invariants.py -v` |
+| 3 | Gate tests pass | `pytest test_gates.py -v` |
+| 4 | Full suite | `sbs_run_tests()` - all pass |
 
-**Gate Validation:**
-- `dev/scripts/sbs/tests/pytest/test_intentional_fail.py` (temporary)
-- Archive inspection via MCP tools
+---
+
+## Success Criteria
+
+1. Gate enforcement moved from agent compliance to code enforcement
+2. TEST_CATALOG.md integrated into Oracle and documented
+3. Archive invariants from harmony doc have automated tests
+4. All tests pass (283+ existing + new tests)
+5. `--force` override available for emergencies
