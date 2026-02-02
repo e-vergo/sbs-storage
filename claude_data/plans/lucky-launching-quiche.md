@@ -1,207 +1,117 @@
-# Plan: Archive Orchestration & Markdown Refactoring
+# Plan: Remove Zebra Styling from Dashboard
 
 ## Goal
 
-1. Create `Archive_Orchestration_and_Agent_Harmony.md` documenting archive workflows and agent interactions
-2. Aggressively reduce CLAUDE.md by leveraging sbs-oracle and delegating to sbs-developer.md
-3. Fix documentation gaps around triggers, validators, and rubric lifecycle
+Remove all alternating row backgrounds (zebra striping) from the dashboard page while preserving zebra styling on blueprint chapter pages.
+
+**Purpose:** Dry run to validate the /task workflow, scoring system, and visual testing.
 
 ---
 
-## Analysis Summary
+## Analysis
 
-### Script-Agent Interaction Findings
+### Current Zebra Styling Locations
 
-From deep exploration of `build.py`, `sbs` CLI, and skill files:
+| File | Lines | Selector | Target |
+|------|-------|----------|--------|
+| `common.css` | 187-209 | `.dashboard-list > li:nth-child(odd/even)` | Dashboard messages |
+| `common.css` | 187-209 | `.notes-list > li:nth-child(odd/even)` | Project notes |
+| `blueprint.css` | 723-732 | `.key-declaration-item:nth-child(odd/even)` | Key declarations |
 
-| Pattern | Description | Design Status |
-|---------|-------------|---------------|
-| **Clean separation** | Scripts are standalone CLI tools; agents invoke via Bash | Intentional, enforced |
-| **Hybrid compliance** | Script generates prompts, agent does AI validation | Intentional, critical |
-| **Trigger metadata** | `--trigger` flag tracks provenance, not behavior | Intentional, simple |
-| **Automatic archive** | `build.py` always calls `archive upload` at completion | By design |
+All selectors are dashboard-specific - no risk to blueprint pages.
 
-### Documentation Gaps
-
-| Gap | Should Document In |
-|-----|-------------------|
-| Script-agent boundary principle | Archive_Orchestration doc |
-| Hybrid compliance pattern explanation | task/SKILL.md |
-| Trigger semantics (provenance tracking) | update-and-archive/SKILL.md |
-| Validator ↔ T1-T8 mapping | task/SKILL.md |
-| Data flow diagrams | Archive_Orchestration doc |
-
-### Target File Responsibilities
-
-| File | Owns | Delegates To |
-|------|------|--------------|
-| CLAUDE.md | Orchestration, prefs, when to spawn | sbs-developer.md, sbs-oracle |
-| sbs-developer.md | Implementation details, patterns, file locations | (keeps technical content) |
-| task/SKILL.md | Workflow phases, validators, rubric lifecycle | (self-contained) |
-| update-and-archive/SKILL.md | Archive triggers, Oracle regen, porcelain | (self-contained) |
-| sbs-oracle.md | Compiled knowledge indices | (auto-generated) |
-
----
-
-## Wave 1: Create Archive_Orchestration_and_Agent_Harmony.md
-
-**Agent 1: Write the tracking document**
-
-Create `dev/markdowns/Archive_Orchestration_and_Agent_Harmony.md` with:
-
-### 1. Design Principles
-
-Document the intentional architecture:
-- **Script-Agent Boundary**: Scripts are standalone CLI tools. They produce output and modify state. They never invoke Claude APIs or spawn agents.
-- **Agent Orchestration**: Agents invoke scripts via Bash, parse output, make decisions. Agents never bypass scripts for state changes.
-- **Hybrid Patterns**: Some workflows (compliance) have scripts prepare work and agents perform AI validation. Document why.
-
-### 2. Archive Workflow Diagrams (text-based)
+### Files to Modify
 
 ```
-build.py completion ──┬── trigger="build" ──┐
-                      │                      │
-/update-and-archive ──┼── trigger="skill" ──┼──► sbs archive upload ──► ArchiveEntry
-                      │                      │
-manual CLI ───────────┴── trigger=none ─────┘
+toolchain/dress-blueprint-action/assets/common.css
+toolchain/dress-blueprint-action/assets/blueprint.css
 ```
-
-Also document:
-- Build → archive upload → iCloud sync (automatic)
-- /task → /update-and-archive → archive upload (skill-triggered)
-- Manual standalone invocations
-
-### 3. Trigger Semantics Table
-
-| Trigger | Invoked By | What Happens | Purpose |
-|---------|-----------|--------------|---------|
-| `--trigger build` | `build.py` | Extract session, apply tags, sync | Provenance: automated build |
-| `--trigger skill` | `/update-and-archive` | Same behavior | Provenance: skill invocation |
-| Manual (no flag) | User CLI | Same behavior | Provenance: manual |
-
-**Key insight**: Trigger affects metadata only, not behavior. Archive always does the same thing.
-
-### 4. Hybrid Compliance Pattern
-
-Explain the bidirectional flow:
-1. Agent runs `sbs compliance`
-2. Script computes pages, generates prompts with screenshot paths
-3. Agent reads screenshots with vision, provides JSON validation
-4. Script (or agent) updates ledger with results
-
-**Why this pattern**: Scripts don't call AI APIs. Agents don't bypass scripts for state. This is the intersection point.
-
-### 5. Validator ↔ T1-T8 Mapping
-
-| Tests | Category | Type | Description |
-|-------|----------|------|-------------|
-| T1-T2 | CLI | Deterministic | CLI execution, ledger population |
-| T3-T4 | Dashboard | AI Vision | Dashboard clarity, toggle discoverability |
-| T5-T6 | Design | Deterministic | Status color match, CSS variable coverage |
-| T7-T8 | Polish | AI Vision | Jarring-free check, professional score |
-
-### 6. Rubric Lifecycle
-
-| Phase | Trigger | What Happens |
-|-------|---------|--------------|
-| Creation | `/task --grab-bag` Phase 3 | User approves metrics, rubric saved to `dev/storage/rubrics/` |
-| Evaluation | Execution loop | Each metric evaluated, results tracked |
-| Invalidation | Repo changes | Scores marked stale via REPO_SCORE_MAPPING |
-| Reuse | `/task --rubric <id>` | Load existing rubric for new evaluation |
-
-### 7. File Responsibility Matrix
-
-Cross-reference to which file documents what, with links.
-
-**Files:** `dev/markdowns/Archive_Orchestration_and_Agent_Harmony.md` (new)
 
 ---
 
-## Wave 2: Documentation Refactoring
+## Wave 1: CSS Changes
 
-**Agent 2: Consolidate all documentation updates**
+**Agent: Remove zebra styling rules**
 
-This wave combines: skill gap fixes + CLAUDE.md reduction + conflict resolution.
+### 1A: common.css
 
-### 2A: update-and-archive/SKILL.md
+Remove lines 187-209 (entire zebra striping section for dashboard lists).
 
-Add/update:
-- Trigger semantics section (provenance tracking, not behavior)
-- Clarify when Oracle regeneration happens (Part 3, after README updates)
-- Document the `sbs archive upload` call in Part 4
+Keep the section header comment but replace content with uniform background:
+```css
+/* ============================================
+   Dashboard List Styling
+   Uniform background for clean appearance
+   ============================================ */
 
-### 2B: task/SKILL.md
-
-Add/update:
-- Validator → T1-T8 mapping table
-- Hybrid compliance pattern explanation (script prepares, agent validates)
-- Document rubric invalidation (REPO_SCORE_MAPPING triggers staleness)
-- Clarify `/task --rubric <id>` behavior
-
-### 2C: CLAUDE.md Aggressive Reduction
-
-**Target**: ~1019 lines → ~500-600 lines
-
-**Move to sbs-developer.md** (if not already there):
-1. "Key Implementation Details" section (~108 lines)
-2. "Key File Locations by Repository" section (~38 lines)
-3. Detailed "Build Pipeline Phases" (~50 lines)
-4. Detailed "Configuration Files" examples (~40 lines)
-
-**Replace with cross-references**:
-```markdown
-## Technical Details
-
-For implementation details, file locations, and build internals, see:
-- [sbs-developer.md](.claude/agents/sbs-developer.md) - Implementation patterns
-- [sbs-oracle](.claude/agents/sbs-oracle.md) - Codebase knowledge (use Task tool to query)
+.dashboard-list > li,
+.notes-list > li {
+  padding: 0.5rem 0.75rem;
+  margin: 0;
+  border-radius: 4px;
+  background-color: var(--sbs-bg-surface);
+}
 ```
 
-**Remove entirely** (duplicated or cross-ref):
-- Build Script Steps (already in dev/storage/README.md)
-- Visual Testing workflow details (cross-ref to dev/storage/README.md)
-- Detailed archive system description (now in Archive_Orchestration doc)
+### 1B: blueprint.css
 
-### 2D: Reconcile Conflicts
+Remove lines 723-732 (zebra striping for key declarations).
 
-During the reduction:
-1. Verify actual line counts with `wc -l`
-2. Update any remaining shared content to match exactly
-3. Ensure cross-references use correct paths
-
-**Files:**
-- `.claude/skills/update-and-archive/SKILL.md`
-- `.claude/skills/task/SKILL.md`
-- `CLAUDE.md`
-- `.claude/agents/sbs-developer.md`
+Replace with uniform styling:
+```css
+/* Key declarations styling */
+.key-declaration-item {
+  background-color: var(--sbs-bg-surface);
+  border-radius: 4px;
+}
+```
 
 ---
 
-## Wave 3: Finalization
+## Wave 2: Build and Capture
 
-**Agent 3: Oracle regeneration and verification**
-
-### 3A: Regenerate Oracle
+**Agent: Rebuild and capture screenshots**
 
 ```bash
-cd /Users/eric/GitHub/Side-By-Side-Blueprint/dev/scripts
-python3 -m sbs oracle compile
+cd /Users/eric/GitHub/Side-By-Side-Blueprint/toolchain/SBS-Test
+python3 ../../dev/scripts/build.py --capture
 ```
 
-Verify Oracle includes:
-- New Archive_Orchestration document content
-- Updated file responsibility matrix
-- Validator → T1-T8 mapping
-- Hybrid compliance pattern
+Wait for build to complete, verify new screenshots captured.
 
-### 3B: Verification Checks
+---
 
-1. CLAUDE.md line count (target: ~500-600)
-2. No broken cross-references (grep for dead links)
-3. No duplicated content between CLAUDE.md and sbs-developer.md
-4. Trigger semantics documented in update-and-archive skill
-5. Validator mapping documented in task skill
-6. Archive_Orchestration document complete and accurate
+## Wave 3: Visual Validation
+
+**Agent: Validate no zebra styling on dashboard**
+
+1. Run visual compliance check:
+```bash
+cd /Users/eric/GitHub/Side-By-Side-Blueprint/dev/scripts
+python3 -m sbs compliance --project SBSTest
+```
+
+2. Manually inspect dashboard screenshot:
+   - Path: `dev/storage/SBSTest/latest/dashboard.png`
+   - Verify: No alternating row backgrounds visible
+   - Verify: Lists have uniform background color
+
+3. Compare before/after:
+   - Before: `dev/storage/SBSTest/previous/dashboard.png` (if exists)
+   - After: `dev/storage/SBSTest/latest/dashboard.png`
+
+4. Record pass/fail in quality ledger
+
+---
+
+## Validation Rubric
+
+| Metric | Type | Pass Criteria |
+|--------|------|---------------|
+| No zebra on dashboard lists | Visual | Dashboard lists have uniform background |
+| No zebra on key declarations | Visual | Key theorem items have uniform background |
+| Blueprint pages unchanged | Visual | Chapter pages still have expected styling |
+| Build succeeds | Deterministic | `build.py` exits 0 |
 
 ---
 
@@ -209,34 +119,25 @@ Verify Oracle includes:
 
 | File | Action |
 |------|--------|
-| `dev/markdowns/Archive_Orchestration_and_Agent_Harmony.md` | Create (new) |
-| `CLAUDE.md` | Aggressive reduction (~50% smaller) |
-| `.claude/agents/sbs-developer.md` | Receives moved content |
-| `.claude/skills/task/SKILL.md` | Add validator mapping, hybrid compliance, rubric lifecycle |
-| `.claude/skills/update-and-archive/SKILL.md` | Add trigger semantics |
-| `.claude/agents/sbs-oracle.md` | Regenerate |
+| `toolchain/dress-blueprint-action/assets/common.css` | Remove zebra rules (lines 187-209) |
+| `toolchain/dress-blueprint-action/assets/blueprint.css` | Remove zebra rules (lines 723-732) |
 
 ---
 
 ## Success Criteria
 
-1. ✅ Archive_Orchestration_and_Agent_Harmony.md exists with:
-   - Design principles (script-agent boundary)
-   - Workflow diagrams
-   - Trigger semantics
-   - Hybrid compliance pattern
-   - Validator ↔ T1-T8 mapping
-   - Rubric lifecycle
-   - File responsibility matrix
+1. ✅ Dashboard screenshot shows uniform backgrounds (no alternating colors)
+2. ✅ Build completes successfully
+3. ✅ No visual regressions on other pages
+4. ✅ Quality score recorded in ledger
 
-2. ✅ CLAUDE.md reduced to ~500-600 lines
+---
 
-3. ✅ No duplicated content between CLAUDE.md and sbs-developer.md
+## Verification
 
-4. ✅ Trigger semantics documented in update-and-archive/SKILL.md
+After completion:
 
-5. ✅ Validator mapping + hybrid compliance in task/SKILL.md
-
-6. ✅ Oracle regenerated with new content
-
-7. ✅ All cross-references work (no broken links)
+1. **Visual check:** Open `http://localhost:8000` and inspect dashboard
+2. **Screenshot comparison:** View before/after in `dev/storage/SBSTest/`
+3. **Automated validation:** `sbs compliance --project SBSTest`
+4. **Quality ledger:** Verify entry in `dev/storage/SBSTest/quality_ledger.json`
