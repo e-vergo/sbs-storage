@@ -1,11 +1,156 @@
-# MVP Test Suite Implementation Plan
+# MVP Validation Plan
 
-## Objective
-Create 125 tests to verify MVP status for Side-by-Side Blueprint. Pass threshold: **120/125 tests**.
+## Phase 1: Test Suite (COMPLETE)
+Created 125 tests. Current status: **123/125 passing** (test mode).
+
+## Phase 2: Full Validation Run (THIS PLAN)
+
+### Objective
+Build all 3 projects, capture screenshots, run tests against real artifacts to achieve true MVP status.
 
 ---
 
-## Test Categories
+## Gap Analysis Summary
+
+**Implementation Status: 95% Complete**
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Side-by-Side Display | ✅ Complete | SideBySide.lean + blueprint.css |
+| Dual Authoring (TeX) | ✅ Complete | \inputleannode, \inputleanmodule |
+| Dual Authoring (Verso) | ✅ Complete | :::leanNode directive |
+| Dependency Graph | ✅ Complete | JSON + SVG + interactive |
+| Status Indicators | ✅ Complete | 6 colors in Lean + CSS |
+| Dashboard | ✅ Complete | Stats, key theorems, navigation |
+| Paper Generation | ✅ Complete | HTML + PDF (GCR configured) |
+| CI/CD Integration | ✅ Complete | 433-line GitHub Action |
+| Visual Quality | ✅ Complete | Theme, brackets, responsive |
+
+**Known Gaps:**
+- Verso LaTeX export not implemented (documented future work)
+- PNT has no paper.tex configured (blueprint only)
+- 2 tests skip on SBS-Test (Verso blueprint, paper.tex - both exist in GCR)
+
+---
+
+## Validation Run Plan
+
+### Wave 1: Build All Projects (sbs-developer)
+
+Build each project in order of complexity:
+
+```bash
+# 1. SBS-Test (~2 min) - Feature completeness
+./dev/build-sbs-test.sh
+
+# 2. GCR (~5 min) - Polished showcase
+./dev/build-gcr.sh
+
+# 3. PNT (~20 min) - Scale validation
+./dev/build-pnt.sh
+```
+
+**Success criteria per project:**
+- Build exits 0
+- manifest.json generated
+- dep-graph.json generated
+- All HTML pages generated
+- No Lean errors
+
+### Wave 2: Capture Screenshots (sbs-developer)
+
+```bash
+cd /Users/eric/GitHub/Side-By-Side-Blueprint/dev/scripts
+
+# Capture all projects with interactive states
+python3 -m sbs capture --project SBSTest --interactive
+python3 -m sbs capture --project GCR --interactive
+python3 -m sbs capture --project PNT --interactive
+```
+
+**Pages to capture per project:**
+- dashboard
+- dep_graph
+- chapter (first chapter with SBS content)
+- paper_tex (if exists)
+- pdf_tex (if exists)
+
+### Wave 3: Run Full Test Suite (sbs-developer)
+
+```bash
+cd /Users/eric/GitHub/Side-By-Side-Blueprint/dev/scripts
+pytest sbs/tests/pytest/mvp/ -v --tb=short
+```
+
+**Expected results:**
+- 123+ tests pass
+- ≤5 tests skip (acceptable for missing optional features)
+- 0 tests fail
+
+### Wave 4: Visual Validation (agent evaluation)
+
+For taste tests, agent reviews screenshots and provides scores:
+
+1. Read each screenshot file
+2. Evaluate against taste criteria (7/10 threshold)
+3. Record findings
+
+**Priority pages for taste evaluation:**
+- SBSTest/dashboard.png - Overall impression
+- SBSTest/dep_graph.png - Graph aesthetics
+- GCR/paper_tex.png - Paper quality
+- PNT/dep_graph.png - Scale handling
+
+### Wave 5: Fix Issues (if needed)
+
+If tests fail or taste scores are low:
+1. Identify root cause
+2. Fix CSS/JS/Lean as needed
+3. Rebuild affected project
+4. Re-capture screenshots
+5. Re-run tests
+
+---
+
+## Gates
+
+```yaml
+gates:
+  builds: all_pass          # All 3 projects build successfully
+  tests: 120/125            # 96% pass rate
+  taste: avg >= 7/10        # Aesthetic threshold
+  regression: 0             # No regression in existing tests
+```
+
+---
+
+## Verification Commands
+
+```bash
+# Full validation sequence
+cd /Users/eric/GitHub/Side-By-Side-Blueprint
+
+# 1. Build all projects
+./dev/build-sbs-test.sh && ./dev/build-gcr.sh && ./dev/build-pnt.sh
+
+# 2. Capture screenshots
+cd dev/scripts
+python3 -m sbs capture --project SBSTest --interactive
+python3 -m sbs capture --project GCR --interactive
+python3 -m sbs capture --project PNT --interactive
+
+# 3. Run tests
+pytest sbs/tests/pytest/mvp/ -v
+
+# 4. Check results
+pytest sbs/tests/pytest/mvp/ --tb=no -q | tail -5
+```
+
+**MVP is achieved when:** 120/125 tests pass against real build artifacts.
+
+---
+
+## Test Categories (Reference)
 
 | Category | Count | Type |
 |----------|-------|------|
