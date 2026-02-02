@@ -79,6 +79,7 @@ Each build creates an `ArchiveEntry`:
 | `tags` | User-defined tags |
 | `screenshots` | List of captured screenshots |
 | `repo_commits` | Git commits at build time (all repos) |
+| `issue_refs` | GitHub issue numbers linked to this entry |
 | `synced_to_icloud` | Sync status |
 
 ### State Machine Fields
@@ -206,6 +207,7 @@ This command:
 sbs archive upload --dry-run          # Show what would be done
 sbs archive upload --project SBSTest  # Associate with project
 sbs archive upload --trigger manual   # Set trigger type (build/manual/skill)
+sbs archive upload --issue-refs 42,43 # Link GitHub issues to entry
 ```
 
 ### Data Extracted from ~/.claude
@@ -604,6 +606,7 @@ sbs_run_tests(tier="evergreen")
 | [`dev/scripts/VISUAL_COMPLIANCE.md`](../scripts/VISUAL_COMPLIANCE.md) | Visual compliance workflow and criteria |
 | [`dev/scripts/sbs/tests/SCORING_RUBRIC.md`](../scripts/sbs/tests/SCORING_RUBRIC.md) | Quality scoring methodology |
 | [`.claude/skills/task/SKILL.md`](../../.claude/skills/task/SKILL.md) | Task skill workflow |
+| [`.claude/skills/log/SKILL.md`](../../.claude/skills/log/SKILL.md) | Quick issue logging skill |
 | [`.claude/agents/sbs-developer.md`](../../.claude/agents/sbs-developer.md) | Development agent guide |
 | [`.claude/agents/sbs-oracle.md`](../../.claude/agents/sbs-oracle.md) | Oracle agent guide |
 | [`dev/markdowns/living/README.md`](../markdowns/living/README.md) | Project overview |
