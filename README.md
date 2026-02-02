@@ -22,6 +22,7 @@
 | `sbs archive sync` | Sync to iCloud |
 | `sbs oracle compile` | Compile Oracle knowledge base from READMEs |
 | `sbs readme-check` | Check which READMEs need updating |
+| `sbs validate-all` | Run compliance + quality score status |
 
 **Run from:** `/Users/eric/GitHub/Side-By-Side-Blueprint/dev/scripts`
 
@@ -75,7 +76,7 @@ dev/storage/rubrics/
 
 ### Creating Rubrics
 
-Rubrics are typically created during `/execute --grab-bag` sessions:
+Rubrics are typically created during `/task --grab-bag` sessions:
 
 1. **Brainstorm** improvements with user
 2. **Align** on measurable metrics
@@ -83,7 +84,7 @@ Rubrics are typically created during `/execute --grab-bag` sessions:
 4. **Execute** tasks with rubric-based validation
 5. **Finalize** with evaluation summary
 
-See `.claude/skills/execute/SKILL.md` for the full grab-bag workflow.
+See `.claude/skills/task/SKILL.md` for the full grab-bag workflow.
 
 ---
 
@@ -435,6 +436,35 @@ The 8-dimensional quality test suite (T1-T8) provides comprehensive quality metr
 
 **Current score:** 91.77/100
 
+### Commands
+
+```bash
+# Unified validation: compliance + quality scores
+sbs validate-all --project SBSTest
+
+# Evaluate specific rubric (returns real T5/T6 scores)
+sbs rubric evaluate t1-t8-baseline --project SBSTest
+```
+
+### Quality Score Ledger
+
+Scores are persisted in `{project}/quality_ledger.json` with:
+- Per-metric scores and pass/fail status
+- Repo commits at evaluation time
+- Staleness detection (auto-invalidates on repo changes)
+- Score history (last 20 snapshots)
+
+Human-readable report generated at `{project}/QUALITY_SCORE.md`.
+
+### Implementation
+
+Located in `scripts/sbs/tests/scoring/`:
+
+| File | Purpose |
+|------|---------|
+| `ledger.py` | `QualityScoreLedger`, `MetricScore`, persistence |
+| `reset.py` | Repo-change detection, metric invalidation |
+
 See `scripts/sbs/tests/SCORING_RUBRIC.md` for detailed methodology.
 
 ---
@@ -530,7 +560,7 @@ The skill runs `sbs readme-check --json` to determine which repos have changes. 
 |----------|---------|
 | [`dev/scripts/VISUAL_COMPLIANCE.md`](../scripts/VISUAL_COMPLIANCE.md) | Visual compliance workflow and criteria |
 | [`dev/scripts/sbs/tests/SCORING_RUBRIC.md`](../scripts/sbs/tests/SCORING_RUBRIC.md) | Quality scoring methodology |
-| [`.claude/skills/execute/SKILL.md`](../../.claude/skills/execute/SKILL.md) | Execute skill with grab-bag mode |
+| [`.claude/skills/task/SKILL.md`](../../.claude/skills/task/SKILL.md) | Task skill with grab-bag mode |
 | [`.claude/agents/sbs-developer.md`](../../.claude/agents/sbs-developer.md) | Development agent guide |
 | [`.claude/agents/sbs-oracle.md`](../../.claude/agents/sbs-oracle.md) | Oracle agent guide |
 | [`dev/markdowns/README.md`](../markdowns/README.md) | Project overview |
