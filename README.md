@@ -12,9 +12,6 @@
 | `sbs capture` | Capture screenshots of all pages |
 | `sbs capture --interactive` | Include hover/click states |
 | `sbs compliance` | Run visual compliance validation |
-| `sbs rubric list` | List all quality rubrics |
-| `sbs rubric show <id>` | Display a rubric |
-| `sbs rubric evaluate <id>` | Evaluate against a rubric |
 | `sbs archive list` | List archive entries |
 | `sbs archive show <id>` | Show entry details |
 | `sbs archive upload` | Extract ~/.claude data and archive |
@@ -28,93 +25,37 @@
 
 ---
 
-## Rubric System
-
-Custom quality rubrics enable structured improvement workflows.
-
-### Commands
-
-```bash
-# Create a rubric from JSON
-sbs rubric create --from-json path/to/rubric.json
-
-# Create an empty rubric by name
-sbs rubric create --name "my-rubric"
-
-# List all rubrics
-sbs rubric list
-
-# Display a rubric (human-readable)
-sbs rubric show my-rubric --format markdown
-
-# Display as JSON
-sbs rubric show my-rubric --format json
-
-# Evaluate a project against a rubric
-sbs rubric evaluate my-rubric --project SBSTest
-
-# Delete a rubric
-sbs rubric delete my-rubric --force
-```
-
-### Rubric Structure
-
-A rubric contains:
-- **Categories**: User-defined groupings (e.g., "Dashboard Clarity", "CSS Quality")
-- **Metrics**: Measurable items with thresholds and weights
-- **Scoring**: Weighted average of metric scores
-
-### Storage
-
-```
-dev/storage/rubrics/
-├── index.json              # Registry of all rubrics
-├── {rubric-id}.json        # Rubric definition
-├── {rubric-id}.md          # Human-readable (auto-generated)
-└── {rubric-id}_eval_*.json # Evaluation results
-```
-
-### Creating Rubrics
-
-Rubrics are typically created during `/task --grab-bag` sessions:
-
-1. **Brainstorm** improvements with user
-2. **Align** on measurable metrics
-3. **Create** rubric with thresholds and weights
-4. **Execute** tasks with rubric-based validation
-5. **Finalize** with evaluation summary
-
-See `.claude/skills/task/SKILL.md` for the full grab-bag workflow.
-
----
-
 ## Archive System
 
-Central archive for build data, screenshots, and metrics.
+Central archive for build data, screenshots, metrics, and workflow state.
 
 ### Directory Structure
 
 ```
 dev/storage/
-├── unified_ledger.json     # Build metrics and timing (single source of truth)
-├── lifetime_stats.json     # Cross-run aggregates
-├── archive_index.json      # Entry index with tags/notes
-├── compliance_ledger.json  # Compliance tracking
-├── rubrics/                # Quality rubrics
-│   ├── index.json
-│   ├── {id}.json
-│   └── {id}.md
-├── charts/                 # Generated visualizations
-│   ├── loc_trends.png
-│   ├── timing_trends.png
-│   └── activity_heatmap.png
-├── chat_summaries/         # Session summaries
-│   └── {entry_id}.md
-└── {project}/              # Per-project screenshots
-    ├── latest/
-    │   ├── capture.json
-    │   └── *.png
-    └── archive/{timestamp}/
++-- unified_ledger.json     # Build metrics and timing (single source of truth)
++-- archive_index.json      # Entry index with tags/notes/state machine
++-- compliance_ledger.json  # Compliance tracking
++-- baselines.json          # Visual baseline hashes for comparison
++-- charts/                 # Generated visualizations
+|   +-- loc_trends.png
+|   +-- timing_trends.png
+|   +-- activity_heatmap.png
++-- chat_summaries/         # Session summaries
+|   +-- {entry_id}.md
++-- claude_data/            # Extracted ~/.claude data
+|   +-- sessions/           # Parsed session JSON
+|   +-- plans/              # Copied plan files
+|   +-- tool_calls/
+|   +-- extraction_state.json
++-- tagging/
+|   +-- rules.yaml          # Declarative rules
+|   +-- hooks/              # Python hooks
++-- {project}/              # Per-project screenshots
+    +-- latest/
+    |   +-- capture.json
+    |   +-- *.png
+    +-- archive/{timestamp}/
 ```
 
 ### Archive Entries
@@ -126,14 +67,60 @@ Each build creates an `ArchiveEntry`:
 | `entry_id` | Unique ID (unix timestamp) |
 | `created_at` | ISO timestamp |
 | `project` | Project name |
+| `trigger` | "build", "skill", or "manual" |
 | `build_run_id` | Links to unified ledger |
-| `rubric_id` | Links to quality rubric (if evaluated) |
-| `rubric_evaluation` | Evaluation results snapshot |
+| `global_state` | Current workflow state (skill + substate) |
+| `state_transition` | Phase boundary marker ("phase_start", "phase_end", or null) |
+| `epoch_summary` | Aggregated data when epoch closes |
 | `notes` | User notes |
 | `tags` | User-defined tags |
 | `screenshots` | List of captured screenshots |
 | `repo_commits` | Git commits at build time (all repos) |
 | `synced_to_icloud` | Sync status |
+
+### State Machine Fields
+
+The archive tracks workflow state for orchestration:
+
+**`global_state`** in ArchiveIndex:
+```python
+{
+    "skill": "task",           # Current skill name or null
+    "substate": "execution"    # Current phase within skill
+}
+```
+
+**`state_transition`** in entries:
+- `"phase_start"` - Beginning of a new phase
+- `"phase_end"` - Completion of a phase
+- `null` - Regular entry (not a boundary)
+
+**Skill substates:**
+- `/task`: alignment -> planning -> execution -> finalization
+- `/update-and-archive`: readme-wave -> oracle-regen -> porcelain -> archive-upload
+
+### Epoch Semantics
+
+An **epoch** is a logical unit of work bounded by `/update-and-archive` invocations:
+
+1. Epoch N starts (previous `/update-and-archive` completed)
+2. Build entries, manual entries, skill-triggered entries accumulate
+3. `/update-and-archive` invoked
+4. Final entry includes `epoch_summary` with aggregated data
+5. Epoch N closes, Epoch N+1 begins
+
+**Epoch summary structure:**
+```python
+{
+    "epoch_number": 42,
+    "duration_hours": 3.5,
+    "entry_count": 12,
+    "builds": {"total": 4, "successful": 3, "failed": 1},
+    "quality_delta": {"start": 89.5, "end": 91.77, "change": 2.27},
+    "repos_changed": ["Dress", "Runway"],
+    "tags_applied": ["visual-improvement", "successful-build"]
+}
+```
 
 ### Commands
 
@@ -280,26 +267,6 @@ After upload, all repos are in clean state:
 - All submodules committed and pushed
 - No uncommitted changes anywhere
 
-### Storage Structure
-
-```
-dev/storage/
-├── claude_data/           # Extracted ~/.claude data
-│   ├── sessions/          # Parsed session JSON
-│   │   ├── {session_id}.json
-│   │   └── index.json
-│   ├── plans/             # Copied plan files
-│   ├── tool_calls/
-│   │   └── summary.json
-│   └── extraction_state.json
-└── tagging/
-    ├── rules.yaml         # Declarative rules
-    └── hooks/             # Python hooks
-        ├── __init__.py
-        ├── cli_arg_misfires.py
-        └── session_quality.py
-```
-
 ---
 
 ## Compliance System
@@ -395,7 +362,6 @@ Validators provide automated quality checks.
 | `git-metrics` | git | Commit/diff tracking |
 | `code-stats` | code | LOC and file counts |
 | `ledger-health` | code | Ledger field population |
-| `rubric` | code | Custom rubric evaluation |
 | `color-match` | design | Status color validation |
 | `variable-coverage` | design | CSS variable coverage |
 | `dashboard-clarity` | design | Dashboard communication check |
@@ -441,9 +407,6 @@ The 8-dimensional quality test suite (T1-T8) provides comprehensive quality metr
 ```bash
 # Unified validation: compliance + quality scores
 sbs validate-all --project SBSTest
-
-# Evaluate specific rubric (returns real T5/T6 scores)
-sbs rubric evaluate t1-t8-baseline --project SBSTest
 ```
 
 ### Quality Score Ledger
@@ -560,9 +523,11 @@ The skill runs `sbs readme-check --json` to determine which repos have changes. 
 |----------|---------|
 | [`dev/scripts/VISUAL_COMPLIANCE.md`](../scripts/VISUAL_COMPLIANCE.md) | Visual compliance workflow and criteria |
 | [`dev/scripts/sbs/tests/SCORING_RUBRIC.md`](../scripts/sbs/tests/SCORING_RUBRIC.md) | Quality scoring methodology |
-| [`.claude/skills/task/SKILL.md`](../../.claude/skills/task/SKILL.md) | Task skill with grab-bag mode |
+| [`.claude/skills/task/SKILL.md`](../../.claude/skills/task/SKILL.md) | Task skill workflow |
 | [`.claude/agents/sbs-developer.md`](../../.claude/agents/sbs-developer.md) | Development agent guide |
 | [`.claude/agents/sbs-oracle.md`](../../.claude/agents/sbs-oracle.md) | Oracle agent guide |
-| [`dev/markdowns/README.md`](../markdowns/README.md) | Project overview |
-| [`dev/markdowns/ARCHITECTURE.md`](../markdowns/ARCHITECTURE.md) | Architecture documentation |
-| [`dev/markdowns/GOALS.md`](../markdowns/GOALS.md) | Project goals and vision |
+| [`dev/markdowns/living/README.md`](../markdowns/living/README.md) | Project overview |
+| [`dev/markdowns/permanent/ARCHITECTURE.md`](../markdowns/permanent/ARCHITECTURE.md) | Architecture documentation |
+| [`dev/markdowns/permanent/GOALS.md`](../markdowns/permanent/GOALS.md) | Project goals and vision |
+| [`dev/markdowns/permanent/Archive_Orchestration_and_Agent_Harmony.md`](../markdowns/permanent/Archive_Orchestration_and_Agent_Harmony.md) | Archive roles and state machine |
+| [`dev/markdowns/permanent/TAXONOMY.md`](../markdowns/permanent/TAXONOMY.md) | Document classification system |
