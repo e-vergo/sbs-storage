@@ -1,159 +1,217 @@
-# Task 3: Gate Enforcement, Test-Catalog Integration, and Archive Invariant Tests
+# Task 4: Archive Audit & Claude Data Extraction Overhaul
 
 ## Summary
 
-Three objectives that stress-test the tooling's ability to handle its own complexity:
+Two objectives to establish a rock-solid foundation for downstream tooling:
 
-1. **Pre-Transition Gate Validation** - Move gate enforcement from agent compliance to code enforcement
-2. **Test-Catalog Integration** - Make TEST_CATALOG.md a first-class artifact in the Oracle and documentation
-3. **Archive Invariant Tests** - Pin down nebulous concepts from Archive_Orchestration_and_Agent_Harmony.md with testable assertions
+1. **Archive Audit** - Comprehensive validation that iCloud backup, metadata capture, and screenshot storage are working correctly
+2. **Claude Data Overhaul** - Expand extraction to capture ALL rich data from JSONL files (thinking blocks, token usage, message threading, etc.)
 
-**Meta-goal:** If we can write tests for concepts like "agent harmony" and enforce gates in code, the system demonstrates it can specify and validate non-trivial requirements.
+**Meta-goal:** Build a dataset rich enough to support prompting analysis, session reconstruction, cost optimization, meta-learning, and future "strange loops."
+
+---
+
+## Current State Analysis
+
+### What's Being Captured Now
+- Session metadata: timestamps, message counts, tool calls (truncated)
+- File operations: reads, writes, edits
+- Plan files (copied wholesale)
+- Tool call summaries (aggregated counts)
+
+### What's Available but NOT Captured
+| Data | Source | Value |
+|------|--------|-------|
+| Thinking blocks | `message.content[].thinking` | Reasoning traces for prompting analysis |
+| Token usage | `message.usage.*` | Cost analysis, cache efficiency |
+| Model version | `message.model`, thinking signature | Version tracking |
+| Message threading | `parentUuid` chains | Conversation reconstruction |
+| Stop reasons | `message.stop_reason` | Completion analysis |
+| Session summary | `sessions-index.json` | Human-readable session purpose |
+| First prompt | `sessions-index.json` | Initial intent/goal |
+| Full tool inputs | Currently truncated to 200 chars | Pattern analysis |
+| Tool results | `tool_result` content | Success/failure analysis |
+
+### Archive System Status
+- iCloud sync: **Working** (81 entries in `SBS_archive/entries/`)
+- Screenshot storage: Needs validation
+- Metadata: Needs completeness check
+- Auto-tagging: Working (16 rules + 2 hooks)
 
 ---
 
 ## Design Decisions
 
-### Task 1: Pre-Transition Gate Validation
-
 | Question | Decision | Rationale |
 |----------|----------|-----------|
-| Where do gates live? | Parse from active plan file | Plans already contain YAML gate definitions; no new indirection |
-| No gates defined? | Permissive (allow with warning) | Don't break existing paths; not all transitions need gates |
-| Override mechanism? | `--force` flag | Emergency escape hatch; logged prominently |
-| Which transitions? | Only `/task` execution→finalization | `/update-and-archive` has different semantics |
-
-### Task 2: Test-Catalog Integration
-
-- Add `dev/storage/TEST_CATALOG.md` to Oracle's ROOT_FILES
-- Document in CLAUDE.md, sbs-developer.md, dev/storage/README.md
-
-### Task 3: Archive Invariant Tests
-
-Tests categorized by confidence level:
-
-| Category | Needs Agent? | Examples |
-|----------|--------------|----------|
-| High-confidence | No | Entry immutability, schema consistency, single-skill invariant, phase ordering |
-| Medium-confidence | No | Epoch summary presence, tagging rules, ledger correspondence |
-| Low-confidence | Yes (hybrid) | Context injection relevance, "natural checkpoint" quality |
+| Store full tool inputs? | Yes, with separate `input_full` field | Keep truncated for quick scans, full for analysis |
+| Extract thinking blocks? | Yes, with `thinking_blocks` list | Critical for prompting analysis |
+| Store token usage? | Yes, per-message and aggregated | Enables cost optimization |
+| Message threading? | Yes, `parent_uuid` field | Session reconstruction |
+| Backwards compatibility? | Maintain existing fields | Don't break existing consumers |
 
 ---
 
 ## Execution Waves
 
-### Wave 1: Foundation (Parallel-safe, single agent)
+### Wave 1: Audit (Single Agent)
 
-**Task 2 implementation:**
-- `dev/scripts/sbs/oracle/compiler.py` - Add TEST_CATALOG.md to ROOT_FILES
-- `CLAUDE.md` - Add TEST_CATALOG.md to Reference Documents table
-- `.claude/agents/sbs-developer.md` - Add to tooling section
-- `dev/storage/README.md` - Add link in Related Documentation
+**Objective:** Validate the archive system is production-ready.
 
-**Validation:** `sbs oracle compile` includes TEST_CATALOG concepts
+**Checks:**
+1. **iCloud Backup Validation**
+   - Verify `SBS_archive/` directory exists and is writable
+   - Check entry count matches local archive
+   - Verify screenshot files exist for recent entries
+   - Validate `archive_index.json` integrity
 
-### Wave 2: Gate Implementation (Sequential, single agent)
+2. **Metadata Completeness**
+   - Load recent entries, verify all expected fields populated
+   - Check `global_state` transitions are valid
+   - Verify `repo_commits` captured for build-triggered entries
+   - Validate auto-tags applied correctly
 
-**Step 2A: Gate module**
-- New file: `dev/scripts/sbs/archive/gates.py`
-  - `GateDefinition` dataclass
-  - `parse_gates_from_plan()` - Extract YAML gates section
-  - `evaluate_test_gate()` - Run pytest, check threshold
-  - `evaluate_quality_gate()` - Run validators, check scores
-  - `check_gates()` - Combined evaluation
+3. **Screenshot Storage**
+   - Verify `latest/` screenshots exist for each project
+   - Check `archive/` has timestamped backups
+   - Validate `capture.json` metadata files
+   - Test screenshot file accessibility
 
-**Step 2B: Upload integration**
-- Modify: `dev/scripts/sbs/archive/upload.py` (around line 402)
-  - Add `force` parameter
-  - Before `execution→finalization` transition:
-    - If `global_state.skill == "task"` and transitioning to finalization
-    - And not `force` flag
-    - Run gate checks; block if any fail
+4. **Report Generation**
+   - Create audit report with pass/fail status
+   - Identify any gaps or inconsistencies
+   - Recommend fixes if issues found
 
-**Step 2C: CLI flag**
-- Modify: `dev/scripts/sbs/archive/cmd.py`
-  - Add `--force` argument to upload subcommand
+**Validation:** Audit report shows all green or issues documented.
 
-**Validation:**
-- `sbs archive upload --help` shows `--force` flag
-- Gate failure blocks transition (test with intentional failure)
+### Wave 2: Data Model Extension (Single Agent)
 
-### Wave 3: Test Suite (Single agent)
+**Objective:** Extend `SessionData` and `ToolCall` to capture rich data.
 
-**New file: `dev/scripts/sbs/tests/pytest/test_archive_invariants.py`**
+**Changes to `session_data.py`:**
 
 ```python
-@pytest.mark.evergreen
-class TestEntryImmutability:
-    """Entries should not change after creation."""
-    def test_entry_hash_stable_after_save_reload()
-    def test_entry_fields_unchanged_after_index_reload()
+@dataclass
+class ToolCall:
+    # Existing fields...
+    tool_name: str
+    timestamp: str
+    duration_ms: Optional[float] = None
+    success: bool = True
+    error: Optional[str] = None
+    input_summary: Optional[str] = None
 
-@pytest.mark.evergreen
-class TestSchemaConsistency:
-    """All entries must conform to ArchiveEntry schema."""
-    def test_required_fields_present()
-    def test_optional_fields_valid_types()
-    def test_state_fields_valid_enum_values()
+    # NEW fields
+    input_full: Optional[dict] = None      # Complete input (not truncated)
+    result_content: Optional[str] = None   # Tool result content
+    result_type: Optional[str] = None      # "text", "image", "error"
+    tool_use_id: Optional[str] = None      # For linking to results
 
-@pytest.mark.evergreen
-class TestSingleActiveSkillInvariant:
-    """Only one skill can be active at a time."""
-    def test_new_skill_requires_idle_state()
-    def test_phase_end_clears_global_state()
+@dataclass
+class ThinkingBlock:
+    """Claude's reasoning trace."""
+    content: str
+    signature: Optional[str] = None        # Model version signature
+    timestamp: Optional[str] = None
 
-@pytest.mark.evergreen
-class TestPhaseTransitionOrdering:
-    """Phase transitions must follow valid sequence."""
-    def test_alignment_before_planning()
-    def test_planning_before_execution()
-    def test_execution_before_finalization()
+@dataclass
+class MessageUsage:
+    """Token usage for a message."""
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_creation_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
 
-@pytest.mark.evergreen
-class TestStateValueValidation:
-    """global_state must be null OR valid {skill, substate} dict."""
-    def test_null_is_valid_state()
-    def test_valid_skill_substate_dict()
-    def test_invalid_skill_name_rejected()
+@dataclass
+class SessionData:
+    # Existing fields...
 
-@pytest.mark.evergreen
-class TestEpochSemantics:
-    """Epoch closing entries must include epoch_summary."""
-    def test_skill_trigger_includes_epoch_summary()
-    def test_last_epoch_entry_updated_on_close()
+    # NEW fields
+    slug: Optional[str] = None             # Human-readable session name
+    first_prompt: Optional[str] = None     # Initial user intent
+    session_summary: Optional[str] = None  # From index
+    model_versions: list[str] = field(default_factory=list)
+    thinking_blocks: list[ThinkingBlock] = field(default_factory=list)
+    message_usage: Optional[MessageUsage] = None  # Aggregated
+    parent_uuid_chain: list[str] = field(default_factory=list)  # For reconstruction
+    stop_reasons: list[str] = field(default_factory=list)
 ```
 
-**New file: `dev/scripts/sbs/tests/pytest/test_gates.py`**
+**Validation:** New dataclasses serialize/deserialize correctly.
+
+### Wave 3: Extractor Enhancement (Single Agent)
+
+**Objective:** Update `extractor.py` to capture all rich data.
+
+**Changes:**
+
+1. **Extract session index metadata:**
+   - `first_prompt` from `firstPrompt`
+   - `session_summary` from `summary`
+   - `slug` from slug field
+
+2. **Parse thinking blocks:**
+   - Detect `type: "thinking"` in message content
+   - Extract `thinking` text and `signature`
+   - Aggregate model versions from signatures
+
+3. **Capture token usage:**
+   - Parse `message.usage` for each assistant message
+   - Aggregate totals across session
+
+4. **Track message threading:**
+   - Capture `parentUuid` for conversation flow
+   - Build chain for session reconstruction
+
+5. **Enhanced tool call extraction:**
+   - Store full input (new field)
+   - Link tool_use to tool_result by ID
+   - Capture actual success/error from result
+
+6. **Stop reason tracking:**
+   - Capture `stop_reason` and `stop_sequence`
+
+**Validation:** Extract a session and verify all new fields populated.
+
+### Wave 4: Storage & Snapshot Update (Single Agent)
+
+**Objective:** Update `ClaudeDataSnapshot` and storage to include new data.
+
+**Changes to `session_data.py`:**
 
 ```python
-@pytest.mark.evergreen
-class TestGateParsing:
-    def test_parse_complete_gate()
-    def test_parse_minimal_gate()
-    def test_parse_no_gates_section()
+@dataclass
+class ClaudeDataSnapshot:
+    # Existing fields...
+    session_ids: list[str]
+    plan_files: list[str]
+    tool_call_count: int
+    message_count: int
+    files_modified: list[str]
+    extraction_timestamp: str
 
-@pytest.mark.evergreen
-class TestGateEvaluation:
-    def test_all_pass_requirement()
-    def test_threshold_requirement()
-    def test_quality_score_gate()
-
-@pytest.mark.evergreen
-class TestGateEnforcement:
-    def test_gate_failure_blocks_transition()
-    def test_force_flag_bypasses_gate()
-    def test_non_task_skill_skips_gates()
+    # NEW fields
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
+    cache_read_tokens: int = 0
+    cache_creation_tokens: int = 0
+    thinking_block_count: int = 0
+    model_versions_used: list[str] = field(default_factory=list)
+    unique_tools_used: list[str] = field(default_factory=list)
 ```
 
-**Validation:** All new tests pass
+**Validation:** Archive upload includes new snapshot fields.
 
-### Wave 4: Integration Testing (Orchestrator)
+### Wave 5: Integration Testing (Orchestrator)
 
-Manual validation by orchestrator:
-1. Create plan with gates that will fail
-2. Attempt transition without `--force` → should block
-3. Attempt transition with `--force` → should succeed with warning
-4. Run full test suite: `sbs_run_tests()`
+**Objective:** End-to-end validation of the enhanced system.
+
+**Tests:**
+1. Run `sbs archive upload` and verify new fields in entry
+2. Check iCloud sync includes enhanced data
+3. Verify session JSON files have all new fields
+4. Run existing tests to ensure no regression
+5. Validate tagging hooks still work with enhanced data
 
 ---
 
@@ -172,44 +230,77 @@ gates:
 
 ## Key Files
 
-**New Files:**
-- `dev/scripts/sbs/archive/gates.py` - Gate validation logic
-- `dev/scripts/sbs/tests/pytest/test_archive_invariants.py` - Archive semantic tests
-- `dev/scripts/sbs/tests/pytest/test_gates.py` - Gate validation tests
-
 **Modified Files:**
-- `dev/scripts/sbs/oracle/compiler.py` - Add TEST_CATALOG.md (line 32-34)
-- `dev/scripts/sbs/archive/upload.py` - Gate checking (around line 402)
-- `dev/scripts/sbs/archive/cmd.py` - Add --force flag
-- `dev/scripts/sbs/tests/pytest/conftest.py` - New fixtures if needed
-- `CLAUDE.md` - Document TEST_CATALOG.md
-- `.claude/agents/sbs-developer.md` - Document TEST_CATALOG.md
-- `dev/storage/README.md` - Link to TEST_CATALOG.md
+- `dev/scripts/sbs/archive/session_data.py` - Add new dataclasses and fields
+- `dev/scripts/sbs/archive/extractor.py` - Enhanced extraction logic
+- `dev/scripts/sbs/archive/upload.py` - Use enhanced snapshot
 
 **Reference Files:**
-- `dev/scripts/sbs/archive/entry.py` - ArchiveEntry/ArchiveIndex schema
-- `dev/markdowns/permanent/Archive_Orchestration_and_Agent_Harmony.md` - Source of invariants
-- `.claude/skills/task/SKILL.md` - Gate format (lines 88-99)
+- `dev/scripts/sbs/archive/icloud_sync.py` - Understand sync flow
+- `dev/scripts/sbs/archive/entry.py` - ArchiveEntry structure
+- `~/.claude/projects/*/*.jsonl` - Source JSONL format
+
+**Test Files:**
+- `dev/scripts/sbs/tests/pytest/test_extractor.py` - New tests for enhanced extraction
 
 ---
 
 ## Verification
 
-| Wave | Check | Command |
-|------|-------|---------|
-| 1 | TEST_CATALOG in Oracle | `sbs oracle compile && grep TEST_CATALOG .claude/agents/sbs-oracle.md` |
-| 2 | Force flag exists | `sbs archive upload --help \| grep force` |
-| 2 | Gates block transition | Manual test with failing gate |
-| 3 | Invariant tests pass | `pytest test_archive_invariants.py -v` |
-| 3 | Gate tests pass | `pytest test_gates.py -v` |
-| 4 | Full suite | `sbs_run_tests()` - all pass |
+| Wave | Check | Method |
+|------|-------|--------|
+| 1 | iCloud backup working | Audit script checks |
+| 1 | Metadata complete | Audit script checks |
+| 1 | Screenshots stored | Audit script checks |
+| 2 | Data model valid | Unit tests for new dataclasses |
+| 3 | Extraction captures all | Parse test session, verify fields |
+| 4 | Snapshot includes new data | Check archive entry after upload |
+| 5 | No regression | `sbs_run_tests()` - all pass |
+| 5 | iCloud sync works | Verify new data in iCloud |
 
 ---
 
 ## Success Criteria
 
-1. Gate enforcement moved from agent compliance to code enforcement
-2. TEST_CATALOG.md integrated into Oracle and documented
-3. Archive invariants from harmony doc have automated tests
-4. All tests pass (283+ existing + new tests)
-5. `--force` override available for emergencies
+1. Audit report shows archive system is production-ready
+2. All JSONL data captured: thinking blocks, token usage, threading, full inputs
+3. Backwards compatible - existing fields unchanged
+4. All 340+ tests pass
+5. Enhanced data visible in iCloud sync
+6. Foundation ready for downstream tooling (prompting analysis, cost optimization, etc.)
+
+---
+
+## Data Flow After Enhancement
+
+```
+~/.claude/projects/{project}/
+├── sessions-index.json          → slug, first_prompt, session_summary
+└── {sessionId}.jsonl
+    ├── message entries
+    │   ├── thinking blocks      → ThinkingBlock list, model_versions
+    │   ├── tool_use blocks      → ToolCall with input_full, tool_use_id
+    │   ├── tool_result blocks   → ToolCall.result_content, result_type, success
+    │   └── usage stats          → MessageUsage, token aggregation
+    ├── parentUuid               → parent_uuid_chain
+    └── stop_reason              → stop_reasons list
+
+↓ (enhanced extraction)
+
+SessionData
+├── All existing fields preserved
+├── thinking_blocks: [ThinkingBlock, ...]
+├── model_versions: ["claude-opus-4-5-...", ...]
+├── message_usage: MessageUsage(input=X, output=Y, cache=Z)
+├── parent_uuid_chain: ["uuid1", "uuid2", ...]
+└── stop_reasons: ["end_turn", ...]
+
+↓ (upload)
+
+ArchiveEntry.claude_data
+├── All existing fields preserved
+├── total_input_tokens, total_output_tokens
+├── cache_read_tokens, cache_creation_tokens
+├── thinking_block_count
+└── model_versions_used
+```
