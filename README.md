@@ -565,3 +565,4 @@ sbs_run_tests(tier="evergreen")
 | [`dev/markdowns/permanent/ARCHITECTURE.md`](../markdowns/permanent/ARCHITECTURE.md) | Architecture documentation |
 | [`dev/markdowns/permanent/GOALS.md`](../markdowns/permanent/GOALS.md) | Project goals and vision |
 | [`dev/markdowns/permanent/Archive_Orchestration_and_Agent_Harmony.md`](../markdowns/permanent/Archive_Orchestration_and_Agent_Harmony.md) | Archive roles and state machine |
+| [`TEST_CATALOG.md`](TEST_CATALOG.md) | Auto-generated catalog of testable components |
