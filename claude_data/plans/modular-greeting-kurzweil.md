@@ -1,12 +1,12 @@
-# GitHub Issues Integration Plan
+# PR-Based Workflow Integration Plan
 
 ## Summary
 
-Integrate GitHub Issues with the archive system via:
-1. New MCP tools wrapping `gh` CLI
-2. `/log` skill for quick issue capture
-3. Archive schema extension for `issue_refs`
-4. `/task` modifications to consume/close issues
+Move from direct-to-main commits to a PR-based workflow where:
+1. All changes go through feature branches
+2. PRs are created when execution plans are approved
+3. PRs are auto-merged when gates pass
+4. Full AI attribution on all PRs
 
 ---
 
@@ -14,180 +14,233 @@ Integrate GitHub Issues with the archive system via:
 
 | Aspect | Decision |
 |--------|----------|
-| Skill name | `/log` |
-| UX | Smart hybrid (parse input, ask for gaps) |
-| Labels | `bug`, `feature`, `idea` (minimal) |
-| Priority | None |
-| Archive link | `issue_refs` field (archive → issue, one-way) |
-| `/task` input | Explicit `#N` or offer list |
-| `/task` close | Prompt during finalization |
-| MCP approach | Tools wrap `gh` CLI internally |
+| Merge authority | Auto-merge if gates pass |
+| Branch naming | `task/<issue-or-id>-<slug>` (human-readable) |
+| Main repo | PRs required |
+| toolchain/* | PRs required |
+| showcase/* | PRs required |
+| forks/* | Direct commits (tracking upstream) |
+| dev/storage | Direct commits (data only) |
+| PR lifecycle | Created at plan approval, merged when gates pass |
+| PR body | Summary + link to plan file |
+| Multi-repo changes | Submodule commits direct, main repo PR captures bump |
+| AI attribution | `ai-authored` label + footer |
 
 ---
 
 ## Implementation Waves
 
-### Wave 1: MCP Tools (sbs-lsp-mcp)
+### Wave 1: MCP PR Tools (sbs-lsp-mcp)
 
 **Files to modify:**
-- [sbs_models.py](forks/sbs-lsp-mcp/src/sbs_lsp_mcp/sbs_models.py) - Add issue models
-- [sbs_tools.py](forks/sbs-lsp-mcp/src/sbs_lsp_mcp/sbs_tools.py) - Add 4 tools
+- [sbs_models.py](forks/sbs-lsp-mcp/src/sbs_lsp_mcp/sbs_models.py) - Add PR models
+- [sbs_tools.py](forks/sbs-lsp-mcp/src/sbs_lsp_mcp/sbs_tools.py) - Add 4 PR tools
+
+**New models:**
+```python
+class GitHubPullRequest(BaseModel):
+    number: int
+    title: str
+    state: str              # "open", "closed", "merged"
+    labels: List[str]
+    url: str
+    body: Optional[str]
+    base_branch: str
+    head_branch: str
+    draft: bool
+    mergeable: Optional[bool]
+    created_at: Optional[str]
+
+class PRCreateResult(BaseModel):
+    success: bool
+    number: Optional[int]
+    url: Optional[str]
+    error: Optional[str]
+
+class PRMergeResult(BaseModel):
+    success: bool
+    sha: Optional[str]      # Merge commit SHA
+    error: Optional[str]
+```
 
 **New tools:**
 
-| Tool | gh Command | Returns |
+| Tool | gh Command | Purpose |
 |------|------------|---------|
-| `sbs_issue_create` | `gh issue create` | Issue number, URL, title |
-| `sbs_issue_list` | `gh issue list` | List of open issues with metadata |
-| `sbs_issue_get` | `gh issue view` | Full issue details |
-| `sbs_issue_close` | `gh issue close` | Success/failure |
+| `sbs_pr_create` | `gh pr create` | Create PR from current branch |
+| `sbs_pr_list` | `gh pr list` | List open PRs |
+| `sbs_pr_get` | `gh pr view` | Get PR details |
+| `sbs_pr_merge` | `gh pr merge` | Merge PR (squash default) |
 
-**Models to add:**
+**Implementation pattern (matches existing issue tools):**
 ```python
-class GitHubIssue(BaseModel):
-    number: int
-    title: str
-    state: str  # "open" | "closed"
-    labels: list[str]
-    url: str
-    body: Optional[str] = None
-    created_at: Optional[str] = None
-
-class IssueCreateResult(BaseModel):
-    success: bool
-    number: Optional[int] = None
-    url: Optional[str] = None
-    error: Optional[str] = None
-
-class IssueListResult(BaseModel):
-    issues: list[GitHubIssue]
-    total: int
-
-class IssueCloseResult(BaseModel):
-    success: bool
-    error: Optional[str] = None
-```
-
-**Tool implementation pattern:**
-```python
-@mcp.tool("sbs_issue_create", annotations=ToolAnnotations(...))
-def sbs_issue_create(
+@mcp.tool("sbs_pr_create", annotations=ToolAnnotations(
+    title="SBS PR Create",
+    readOnlyHint=False,
+    idempotentHint=False,
+    openWorldHint=True,
+))
+def sbs_pr_create(
     ctx: Context,
-    title: Annotated[str, Field(description="Issue title")],
-    body: Annotated[Optional[str], Field(description="Issue body")] = None,
-    label: Annotated[Optional[str], Field(description="Label: bug, feature, idea")] = None,
-) -> IssueCreateResult:
-    cmd = ["gh", "issue", "create", "--repo", "anthropics/Side-By-Side-Blueprint",
-           "--title", title]
-    if body:
-        cmd.extend(["--body", body])
-    if label:
-        cmd.extend(["--label", label])
+    title: str,
+    body: Optional[str] = None,
+    base: str = "main",
+    draft: bool = False,
+) -> PRCreateResult:
+    # Auto-add ai-authored label
+    # Auto-append attribution footer
+    attribution = "\n\n---\n🤖 Generated with [Claude Code](https://claude.ai/code)"
+    full_body = (body or "") + attribution
 
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-    # Parse output, return structured result
+    cmd = ["gh", "pr", "create", "--repo", GITHUB_REPO,
+           "--title", title, "--body", full_body,
+           "--base", base, "--label", "ai-authored"]
+    if draft:
+        cmd.append("--draft")
+    # ... subprocess pattern
 ```
 
 ---
 
-### Wave 2: Archive Schema Extension
-
-**Files to modify:**
-- [entry.py](dev/scripts/sbs/archive/entry.py) - Add `issue_refs` field
-- [rules.yaml](dev/storage/tagging/rules.yaml) - Add tagging rule
-
-**Schema change:**
-```python
-@dataclass
-class ArchiveEntry:
-    # ... existing fields ...
-    issue_refs: list[str] = field(default_factory=list)  # e.g., ["42", "57"]
-```
-
-**Tagging rule:**
-```yaml
-  - name: has-github-issues
-    condition:
-      field: issue_refs
-      is_empty: false
-    tags: ["has-github-issue"]
-```
-
----
-
-### Wave 3: /log Skill
+### Wave 2: Branch Management Utilities
 
 **Files to create:**
-- [.claude/skills/log/SKILL.md](.claude/skills/log/SKILL.md)
+- [dev/scripts/sbs/core/branch_ops.py](dev/scripts/sbs/core/branch_ops.py) - Branch management
 
-**Skill structure:**
-```yaml
----
-name: log
-description: Quick capture of issues and ideas to GitHub
-version: 1.0.0
----
+**Functions:**
+```python
+def create_feature_branch(slug: str, issue_number: Optional[int] = None) -> str:
+    """Create and checkout feature branch.
 
-# /log - Issue Capture Skill
+    Naming: task/<issue>-<slug> or task/<slug>
+    Returns branch name.
+    """
 
-## Invocation
-- `/log` - Interactive mode (asks for details)
-- `/log fix the graph layout bug` - Infers type, creates issue
-- `/log --idea --label=enhancement "tooltip feature"` - Direct creation
+def get_current_branch() -> str:
+    """Return current branch name."""
 
-## Workflow
-1. Parse input for title, type, description
-2. Infer missing fields (type from keywords: "bug", "fix" → bug)
-3. Ask user to confirm/fill gaps via AskUserQuestion
-4. Call sbs_issue_create MCP tool
-5. Archive with issue_refs populated
-6. Report issue number and URL
+def is_on_feature_branch() -> bool:
+    """Check if we're on a feature branch (not main)."""
 
-## Archive Protocol
-- Single archive upload with trigger="skill"
-- Sets issue_refs to [<new_issue_number>]
-- No global_state (atomic operation, not multi-phase)
+def push_branch(branch: str, set_upstream: bool = True) -> bool:
+    """Push branch to origin."""
+
+def delete_branch(branch: str, remote: bool = True) -> bool:
+    """Delete branch locally and optionally remotely."""
 ```
 
+**Integration with git_ops.py:**
+- Import into existing `dev/scripts/sbs/core/git_ops.py`
+- Maintain backward compatibility with existing `git_commit_and_push()`
+
 ---
 
-### Wave 4: /task Integration
+### Wave 3: /task Skill PR Integration
 
 **Files to modify:**
 - [.claude/skills/task/SKILL.md](.claude/skills/task/SKILL.md)
 
-**Changes:**
+**Changes to Phase Transitions:**
 
-1. **Invocation accepts issue number:**
-   ```
-   /task #42      → Loads issue #42 as task spec
-   /task          → Lists open issues, lets user pick or describe freeform
-   ```
+```markdown
+## Phase 2: Planning
 
-2. **Alignment phase modification:**
-   - If issue number given: call `sbs_issue_get`, use issue body as task context
-   - If no issue: call `sbs_issue_list`, present options + freeform option
+... existing content ...
 
-3. **Archive entries during execution:**
-   - All archive uploads include `issue_refs` with linked issue numbers
+**REQUIRED:** After plan approval:
+1. Create feature branch: `task/<issue-or-slug>`
+2. Push branch to origin
+3. Create PR with:
+   - Title: Task title
+   - Body: Summary + link to plan
+   - Labels: `ai-authored`
+   - Draft: false (ready for review)
+4. Transition to execution:
 
-4. **Finalization modification:**
-   - After gate validation, before documentation cleanup:
-   - "Close issue #42? [Yes/No]"
-   - If yes: call `sbs_issue_close`
+```bash
+python3 -m sbs archive upload --trigger skill \
+  --global-state '{"skill":"task","substate":"execution"}' \
+  --state-transition phase_start \
+  --pr-number <pr_number>
+```
+```
+
+**Changes to Execution:**
+- All work happens on feature branch
+- Commits go to branch, not main
+- Validators run against branch state
+
+**Changes to Finalization:**
+```markdown
+## Phase 4: Finalization
+
+1. Run full validation suite
+2. **If gates pass:**
+   - Merge PR via `sbs_pr_merge` (squash)
+   - Delete feature branch
+3. Update unified ledger
+4. Generate summary report
+5. Clear state
+```
 
 ---
 
-### Wave 5: Testing & Validation
+### Wave 4: Archive Schema Extension
 
-**Manual testing:**
-1. MCP tools: Use Claude Code to call each tool directly
-2. `/log` skill: Test interactive and one-shot modes
-3. `/task` integration: Test with and without issue number
+**Files to modify:**
+- [dev/scripts/sbs/archive/entry.py](dev/scripts/sbs/archive/entry.py)
+- [dev/scripts/sbs/archive/upload.py](dev/scripts/sbs/archive/upload.py)
+- [dev/scripts/sbs/cli.py](dev/scripts/sbs/cli.py)
 
-**Automated tests:**
-- Add tests to `dev/scripts/sbs/tests/pytest/` for archive schema (verify `issue_refs` serialization)
-- Test tagging rule applies correctly
+**Schema addition:**
+```python
+@dataclass
+class ArchiveEntry:
+    # ... existing fields ...
+    pr_refs: list[int] = field(default_factory=list)  # PR numbers
+```
+
+**CLI addition:**
+```bash
+python3 -m sbs archive upload --pr-number 42
+```
+
+**Tagging rule:**
+```yaml
+  - name: has-pr
+    condition:
+      field: pr_refs
+      is_empty: false
+    tags: ["has-pr"]
+```
+
+---
+
+### Wave 5: Build Flow Adaptation
+
+**Files to modify:**
+- [dev/scripts/sbs/build/orchestrator.py](dev/scripts/sbs/build/orchestrator.py)
+- [dev/scripts/sbs/build/phases.py](dev/scripts/sbs/build/phases.py)
+
+**Changes:**
+- `git_commit_and_push()` checks if on feature branch
+- If on feature branch: commit/push to branch (no PR merge)
+- If on main: existing behavior (for repos that don't use PRs)
+- `sync_repos()` respects per-repo strategy (PR vs direct)
+
+**Repo strategy awareness:**
+```python
+REPO_PR_STRATEGY = {
+    "main": "pr_required",
+    "toolchain/Dress": "pr_required",
+    "toolchain/Runway": "pr_required",
+    # ... etc
+    "forks/verso": "direct",
+    "forks/subverso": "direct",
+    # ... etc
+    "dev/storage": "direct",
+}
+```
 
 ---
 
@@ -195,40 +248,46 @@ version: 1.0.0
 
 | File | Purpose |
 |------|---------|
-| `forks/sbs-lsp-mcp/src/sbs_lsp_mcp/sbs_models.py` | Issue Pydantic models |
-| `forks/sbs-lsp-mcp/src/sbs_lsp_mcp/sbs_tools.py` | Issue MCP tools |
+| `forks/sbs-lsp-mcp/src/sbs_lsp_mcp/sbs_models.py` | PR Pydantic models |
+| `forks/sbs-lsp-mcp/src/sbs_lsp_mcp/sbs_tools.py` | PR MCP tools |
+| `dev/scripts/sbs/core/branch_ops.py` | Branch management (new) |
 | `dev/scripts/sbs/archive/entry.py` | Archive schema |
-| `dev/storage/tagging/rules.yaml` | Auto-tagging rules |
-| `.claude/skills/log/SKILL.md` | New skill |
-| `.claude/skills/task/SKILL.md` | Modified skill |
+| `dev/scripts/sbs/archive/upload.py` | PR refs handling |
+| `.claude/skills/task/SKILL.md` | PR workflow integration |
+| `dev/scripts/sbs/build/orchestrator.py` | Branch-aware builds |
 
 ---
 
 ## Verification
 
-1. **MCP tools work:**
+1. **MCP PR tools work:**
    ```
-   # In Claude Code session
-   Call sbs_issue_list → should return open issues
-   Call sbs_issue_create with test title → should create issue
-   Call sbs_issue_get with number → should return details
-   Call sbs_issue_close with number → should close it
+   # Create test branch manually
+   git checkout -b task/test-pr-tools
+   git push -u origin task/test-pr-tools
+
+   # Test tools
+   sbs_pr_create(title="Test PR", body="Testing")
+   sbs_pr_list()
+   sbs_pr_get(number=<n>)
+   sbs_pr_merge(number=<n>)
    ```
 
-2. **Archive integration:**
-   ```bash
-   # After creating an issue via /log
-   python3 -m sbs archive upload --trigger skill
-   # Check archive_index.json for issue_refs field
+2. **Branch operations:**
+   ```python
+   from sbs.core.branch_ops import create_feature_branch
+   branch = create_feature_branch("test-branch", issue_number=1)
+   # Should create task/1-test-branch
    ```
 
-3. **Skill functionality:**
+3. **Full /task workflow:**
    ```
-   /log fix the graph layout bug
-   # Should create issue, report number, archive with issue_refs
-
-   /task #<number>
-   # Should load issue as context
+   /task #1
+   # Should:
+   # - Create branch task/1-verso-pdf-fix
+   # - Open PR
+   # - Execute on branch
+   # - Merge when gates pass
    ```
 
 ---
@@ -239,8 +298,7 @@ version: 1.0.0
 gates:
   tests: all_pass
   quality:
-    T1: >= 0.8  # CLI execution
-    T2: >= 0.8  # Ledger population
+    T1: >= 0.8
   regression: >= 0
 ```
 
@@ -248,10 +306,10 @@ gates:
 
 ## Execution Order
 
-1. Wave 1 (MCP) - Foundation
-2. Wave 2 (Archive) - Data model
-3. Wave 3 (/log) - Capture path
-4. Wave 4 (/task) - Consumption path
-5. Wave 5 (Testing) - Validation
+1. Wave 1 (MCP PR tools) - Foundation
+2. Wave 2 (Branch ops) - Git utilities
+3. Wave 3 (/task skill) - Workflow integration
+4. Wave 4 (Archive schema) - PR tracking
+5. Wave 5 (Build flow) - Branch awareness
 
-Each wave should be validated before proceeding to the next.
+Each wave validated before proceeding.
