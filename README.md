@@ -30,10 +30,12 @@
 
 Central archive for build data, screenshots, metrics, and workflow state.
 
+**Naming:** The local directory is `dev/storage/` but conceptually referred to as "the archive" throughout the codebase. The iCloud backup location is `~/Library/Mobile Documents/com~apple~CloudDocs/SBS_archive/`.
+
 ### Directory Structure
 
 ```
-dev/storage/
+dev/storage/  (local archive)
 +-- unified_ledger.json     # Build metrics and timing (single source of truth)
 +-- archive_index.json      # Entry index with tags/notes/state machine
 +-- compliance_ledger.json  # Compliance tracking
@@ -157,11 +159,25 @@ sbs archive retroactive
 
 ### iCloud Sync
 
-Archive data syncs to iCloud on every build:
+The entire archive syncs to iCloud on every build for complete backup:
 
 ```
 ~/Library/Mobile Documents/com~apple~CloudDocs/SBS_archive/
 ```
+
+**What Gets Backed Up:**
+| Content | Description |
+|---------|-------------|
+| `archive_index.json` | Main entry index |
+| `unified_ledger.json` | Build metrics |
+| `compliance_ledger.json` | Compliance data |
+| `baselines.json` | Visual baseline hashes |
+| `migrations.json` | File migration tracking |
+| `claude_data/` | Sessions, plans, tool calls (full rich data) |
+| `tagging/` | Rules and hooks |
+| `charts/` | Generated visualizations |
+| `entries/` | Individual entry metadata + screenshots |
+| `{project}/` | Project screenshots (SBSTest, GCR, PNT) |
 
 Sync is non-blocking - failures are logged but don't break builds.
 
