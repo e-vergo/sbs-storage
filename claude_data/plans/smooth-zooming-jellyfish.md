@@ -1,71 +1,74 @@
-# MVP Dry Run: Systems Validation
+# MVP Dry Run: Visual Defect Fix + Gate Stress Test
 
 ## Context
 
-This is a pre-MVP validation task. The MVP goal is releasing the SBS toolchain to the Lean formalization community, where it has already attracted attention from the FRO (Formalization Research Organization).
-
-**Focus:** Validate development infrastructure is solid before pivoting 100% to tool polish.
+Pre-MVP validation task with two objectives:
+1. Fix visual defects in dependency graph page (text dump issue)
+2. Stress test the gate system by attempting bypasses
 
 ---
 
-## Validation Objectives
+## Visual Defect Analysis
 
-1. **Test Suite** - All tests pass
-2. **Quality Validators** - T1-T8 scores acceptable
-3. **Build Pipeline** - SBSTest builds successfully
-4. **Archive System** - Extraction, tagging, iCloud sync working
-5. **Gate System** - Gates evaluate correctly
+**Observed:** Screenshot shows raw JSON-like text dumped at top of dep_graph page
+
+**Investigation Results:**
+- HTML structure in `dep_graph.html` appears correct - JSON is in `<script type="application/json">`
+- CSS doesn't have visibility issues for script content
+- JS doesn't appear to dump raw data
+
+**Hypothesis:** The `embedGraph` and `embedFullPageGraph` functions in `DepGraph.lean` concatenate `jsonHtml ++ svgHtml`, placing the script tag before the SVG. While script tags shouldn't render, the order might affect rendering context.
 
 ---
 
 ## Execution Plan
 
-### Wave 1: Test Suite Validation (Orchestrator)
+### Wave 1: Fix Visual Defect (Single Agent)
 
-Run the full test suite and verify pass rate.
+**Objective:** Fix the text dump issue on dep_graph page
 
-**Commands:**
-```bash
-sbs_run_tests()  # via MCP
-```
+**Changes in `/Users/eric/GitHub/Side-By-Side-Blueprint/toolchain/Runway/Runway/DepGraph.lean`:**
 
-**Gate:** All tests pass (or known failures documented)
+1. Line ~150 in `embedGraph`:
+   - Change: `jsonHtml ++ svgHtml` → `svgHtml ++ jsonHtml`
 
-### Wave 2: Quality Validators (Orchestrator)
+2. Line ~268 in `embedFullPageGraph`:
+   - Change: `jsonHtml ++ svgHtml` → `svgHtml ++ jsonHtml`
 
-Run T1-T8 validators against SBSTest.
+**Validation:**
+1. Build SBSTest: `./dev/build-sbs-test.sh`
+2. Capture screenshots: `sbs capture --project SBSTest`
+3. Verify dep_graph page no longer has text dump
 
-**Commands:**
-```bash
-sbs_validate_project(project="SBSTest")  # via MCP
-```
+### Wave 2: Gate Stress Test (Orchestrator)
 
-**Gate:** T5, T6 pass (deterministic tests)
+**Objective:** Test gate enforcement by attempting bypasses
 
-### Wave 3: Build Pipeline (Orchestrator)
+**Test Sequence:**
 
-Verify a clean build completes successfully.
+1. **Set strict gates that will fail:**
+   ```yaml
+   gates:
+     tests: all_pass
+     quality:
+       T5: >= 0.99  # Intentionally high
+       T6: >= 0.99  # Intentionally high
+   ```
 
-**Commands:**
-```bash
-sbs_build_project(project="SBSTest", dry_run=True)  # Verify pipeline
-```
+2. **Attempt bypasses (gentle to aggressive):**
+   - Level 1: Try to proceed to finalization without meeting gates
+   - Level 2: Try to skip gate check entirely
+   - Level 3: Try to manually set gate results
+   - Level 4: Try to edit plan file to remove gates
 
-**Gate:** Dry run succeeds without errors
-
-### Wave 4: iCloud Sync Verification (Orchestrator)
-
-Confirm full archive backup is working.
-
-**Checks:**
-- Archive index synced
-- Sessions synced (111 expected)
-- Project screenshots present
-- Claude data directories present
+3. **Document behavior at each level:**
+   - Does the system block?
+   - What error message appears?
+   - What is the recovery path?
 
 ---
 
-## Gates
+## Gates (For Actual Task Completion)
 
 ```yaml
 gates:
@@ -77,25 +80,33 @@ gates:
 
 ---
 
-## Success Criteria
+## Key Files
 
-1. Test suite passes
-2. Quality validators show acceptable scores
-3. Build pipeline functional
-4. iCloud sync complete
-5. No blocking issues identified
+**To Modify:**
+- `toolchain/Runway/Runway/DepGraph.lean` (lines ~150, ~268)
+
+**To Validate:**
+- `toolchain/SBS-Test/.lake/build/runway/dep_graph.html`
+- `dev/storage/SBSTest/latest/dep_graph.png`
 
 ---
 
-## Post-Validation
+## Verification
 
-If validation passes, the system is ready for the MVP push. Focus shifts entirely to the 8 MVP success criteria from `dev/markdowns/living/MVP.md`:
+| Step | Command | Expected Result |
+|------|---------|-----------------|
+| Build | `./dev/build-sbs-test.sh` | Success |
+| Capture | `sbs capture --project SBSTest` | Screenshots captured |
+| Visual check | View dep_graph.png | No text dump |
+| Tests | `sbs_run_tests()` | All pass |
+| Quality | `sbs_validate_project("SBSTest")` | T5, T6 >= 0.8 |
 
-1. Side-by-side display works
-2. Dual authoring modes work (TeX + Verso)
-3. Dependency graph works
-4. Status colors work (6-color model)
-5. Dashboard works
-6. Paper generation works
-7. CI/CD works
-8. Visual quality - professional, no jarring elements
+---
+
+## Success Criteria
+
+1. Dep graph page no longer shows raw text dump
+2. Gate system correctly blocks when thresholds not met
+3. Gate bypass attempts documented
+4. All tests pass
+5. Quality validators show acceptable scores
