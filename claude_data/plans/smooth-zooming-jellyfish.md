@@ -46,14 +46,9 @@ Pre-MVP validation task with two objectives:
 
 **Test Sequence:**
 
-1. **Set strict gates that will fail:**
-   ```yaml
-   gates:
-     tests: all_pass
-     quality:
-       T5: >= 0.99  # Intentionally high
-       T6: >= 0.99  # Intentionally high
-   ```
+1. **Set strict gates that will fail:** (COMPLETED - gates tested at 0.99)
+   <!-- Commented out for final validation -->
+   <!-- gates: tests: all_pass, quality: T5: >= 0.99, T6: >= 0.99 -->
 
 2. **Attempt bypasses (gentle to aggressive):**
    - Level 1: Try to proceed to finalization without meeting gates
