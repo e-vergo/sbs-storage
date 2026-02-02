@@ -20,6 +20,7 @@
 | `sbs oracle compile` | Compile Oracle knowledge base from READMEs |
 | `sbs readme-check` | Check which READMEs need updating |
 | `sbs validate-all` | Run compliance + quality score status |
+| `sbs test-catalog` | List all testable components with metadata |
 
 **Run from:** `/Users/eric/GitHub/Side-By-Side-Blueprint/dev/scripts`
 
@@ -517,6 +518,40 @@ The skill runs `sbs readme-check --json` to determine which repos have changes. 
 
 ---
 
+## Test Organization System
+
+Tests are organized into three tiers using pytest markers:
+
+| Tier | Marker | Purpose |
+|------|--------|---------|
+| **Evergreen** | `@pytest.mark.evergreen` | Production tests that always run |
+| **Dev** | `@pytest.mark.dev` | Development/WIP tests, toggle-able |
+| **Temporary** | `@pytest.mark.temporary` | Tests to be discarded after use |
+
+### Commands
+
+```bash
+# List all testable components
+sbs test-catalog
+
+# JSON output for programmatic use
+sbs test-catalog --json
+
+# Filter by tier
+sbs test-catalog --tier evergreen
+
+# Run specific tier via MCP tool
+sbs_run_tests(tier="evergreen")
+```
+
+### What test-catalog Shows
+
+- **MCP Tools (11)**: SBS tools with category and read-only status
+- **Pytest Tests**: All tests with tier markers
+- **CLI Commands**: All sbs subcommands with availability
+
+---
+
 ## Related Documentation
 
 | Document | Purpose |
@@ -530,4 +565,3 @@ The skill runs `sbs readme-check --json` to determine which repos have changes. 
 | [`dev/markdowns/permanent/ARCHITECTURE.md`](../markdowns/permanent/ARCHITECTURE.md) | Architecture documentation |
 | [`dev/markdowns/permanent/GOALS.md`](../markdowns/permanent/GOALS.md) | Project goals and vision |
 | [`dev/markdowns/permanent/Archive_Orchestration_and_Agent_Harmony.md`](../markdowns/permanent/Archive_Orchestration_and_Agent_Harmony.md) | Archive roles and state machine |
-| [`dev/markdowns/permanent/TAXONOMY.md`](../markdowns/permanent/TAXONOMY.md) | Document classification system |
