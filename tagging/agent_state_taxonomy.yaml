@@ -48,6 +48,8 @@ dimensions:
         description: "Entry closes an epoch (update-and-archive completion)"
       - name: "transition:backward"
         description: "Phase regression detected (went back to earlier phase)"
+      - name: "transition:phase-fail"
+        description: "Phase failed without completing (e.g., gate failure, error)"
       - name: "transition:none"
         description: "No state transition in this entry"
 
@@ -154,6 +156,10 @@ dimensions:
         description: "Quality scores decreased vs previous entry"
       - name: "outcome:quality-stable"
         description: "Quality scores unchanged vs previous entry"
+      - name: "outcome:scope-expanded"
+        description: "Plan files were modified during execution phase (scope creep)"
+      - name: "outcome:build-after-fix-failed"
+        description: "Build failed after recent file edits (fix attempt unsuccessful)"
 
   # =========================================================================
   # 7. signal -- Anomaly or attention signals detected
@@ -163,8 +169,10 @@ dimensions:
     tags:
       - name: "signal:backward-transition"
         description: "Phase regression detected in state machine"
-      - name: "signal:bash-error-rate-high"
-        description: "More than 30% of bash commands returned non-zero"
+      - name: "signal:consecutive-bash-failures"
+        description: "3+ bash commands failed in a row without success between them"
+      - name: "signal:same-command-retry"
+        description: "Same command (tool+file) executed 3+ times in a session"
       - name: "signal:cli-misfire"
         description: "CLI argument errors detected in session"
       - name: "signal:max-tokens-hit"
