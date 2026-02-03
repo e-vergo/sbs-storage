@@ -1,83 +1,137 @@
-# Task #81: Enrich GitHub Issue Label Taxonomy
+# Enrich Archive Agent-State Tag Taxonomy
 
 ## Summary
 
-Define a hierarchical, colon-delimited label taxonomy (11 dimensions, ~125 labels) for GitHub issues. Update `sbs_issue_create` MCP tool, `/log` skill, and `/self-improve` skill to use it. Create CLI tooling to sync labels to GitHub. Defer retroactive application.
+Overhaul the archive auto-tagging system with a 16-dimension, ~150 colon-delimited tag taxonomy ("agent-state tags"). Expand `build_tagging_context()` to surface state machine + token + session fields. Rewrite `rules.yaml` v2.0 with hierarchical tags. Replace stub hooks with comprehensive session profiler and signal detector. Add taxonomy validation tests.
 
 ---
 
 ## Waves
 
-### Wave 1: Taxonomy Definition + CLI Sync (Foundation)
+### Wave 1: Taxonomy + Context Expansion (Foundation)
 
 **Files:**
-- `dev/storage/labels/taxonomy.yaml` (CREATE) -- Full taxonomy, 11 dimensions, colors, descriptions
-- `dev/scripts/sbs/labels/__init__.py` (CREATE) -- Taxonomy loader, validation, lookup
-- `dev/scripts/sbs/labels/sync.py` (CREATE) -- `gh label create/edit` sync (idempotent)
-- `dev/scripts/sbs/cli.py` (MODIFY) -- Add `sbs labels sync` and `sbs labels list`
-- `dev/scripts/sbs/tests/pytest/test_taxonomy.py` (CREATE) -- Validation tests
+- `dev/storage/tagging/agent_state_taxonomy.yaml` (CREATE) -- Full 16-dimension taxonomy: phase, transition, skill, trigger, session, outcome, signal, scope, repo, epoch, linkage, token, thinking, tool, quality, model
+- `dev/scripts/sbs/archive/tagger.py` (MODIFY) -- Expand `build_tagging_context()` to flatten state machine fields, token counts, thinking blocks, quality scores, epoch data into the context dict
+- `dev/scripts/sbs/tests/pytest/test_agent_state_taxonomy.py` (CREATE) -- Taxonomy validation: uniqueness, naming conventions, dimension coverage, loader tests
 
-**Color scheme by dimension:**
-| Dimension | Color | Hex |
-|-----------|-------|-----|
-| origin | Gray | #9E9E9E |
-| type:bug | Red | #d73a4a |
-| type:feature | Cyan | #0E8A16 |
-| type:idea | Purple | #d876e3 |
-| type:behavior | Yellow | #fbca04 |
-| type:housekeeping | Warm Gray | #CFD8DC |
-| type:investigation | Dark Green | #0e8a16 |
-| area:sbs | Blue | #1565C0 |
-| area:devtools | Teal | #00695C |
-| area:lean | Amber | #E65100 |
-| loop | Indigo | #283593 |
-| impact | Green | #1B5E20 |
-| scope | Brown | #795548 |
-| pillar | Deep Purple | #311B92 |
-| project | Pink | #880E4F |
-| friction | Orange | #BF360C |
+**Context expansion -- new fields to add to `build_tagging_context()`:**
 
-### Wave 2: MCP Tool Migration
-
-**Files:**
-- `forks/sbs-lsp-mcp/src/sbs_lsp_mcp/sbs_tools.py` (MODIFY) -- `sbs_issue_create`: add `labels: List[str]` param, keep `label`/`area` for backward compat. `sbs_issue_summary`: group by all dimensions.
-- `forks/sbs-lsp-mcp/src/sbs_lsp_mcp/sbs_models.py` (MODIFY) -- Update result models
-
-**Backward compat logic:**
 ```python
-resolved_labels = ["ai-authored"]
-if labels:
-    resolved_labels.extend(labels)
-else:
-    if label: resolved_labels.append(label)
-    if area: resolved_labels.append(f"area:{area}")
+# State machine (from entry directly)
+context["skill"] = entry.global_state.get("skill") if entry.global_state else None
+context["substate"] = entry.global_state.get("substate") if entry.global_state else None
+context["state_transition"] = entry.state_transition
+context["has_epoch_summary"] = entry.epoch_summary is not None
+context["gate_passed"] = entry.gate_validation.get("passed") if entry.gate_validation else None
+
+# Token counts (from claude_data)
+context["total_input_tokens"] = claude_data.get("total_input_tokens", 0)
+context["total_output_tokens"] = claude_data.get("total_output_tokens", 0)
+context["cache_read_tokens"] = claude_data.get("cache_read_tokens", 0)
+context["thinking_block_count"] = claude_data.get("thinking_block_count", 0)
+context["unique_tools_count"] = len(claude_data.get("unique_tools_used", []))
+context["model_versions"] = claude_data.get("model_versions_used", [])
+
+# Quality (from entry)
+context["quality_overall"] = entry.quality_scores.get("overall") if entry.quality_scores else None
+context["quality_delta"] = entry.quality_delta.get("overall") if entry.quality_delta else None
 ```
 
-### Wave 3: `/log` Skill Enrichment
+**Taxonomy YAML structure:**
+```yaml
+version: "2.0"
+name: "agent-state"
+
+dimensions:
+  phase:
+    description: "Skill lifecycle phase"
+    tags:
+      - name: "phase:alignment"
+        description: "In alignment/Q&A phase"
+      # ...
+  transition:
+    # ...
+```
+
+### Wave 2: Rules Rewrite (Declarative Tags)
 
 **Files:**
-- `.claude/skills/log/SKILL.md` (MODIFY) -- Expanded keyword tables, multi-dimension inference
+- `dev/storage/tagging/rules.yaml` (REWRITE) -- v2.0 with colon-delimited tags across 10 declarative dimensions
 
-**Inference tiers:**
-- **Always infer:** origin (always `origin:agent`), type (18 subtypes), area (42 areas)
-- **Conditionally infer:** impact, scope, friction (only when keywords strongly signal)
-- **Never prompt for:** loop, pillar, project
+**Dimensions covered by declarative rules** (simple field matching):
 
-### Wave 4: `/self-improve` Skill + GitHub Sync
+| Dimension | Rules | Example |
+|---|---|---|
+| **phase** | 9 rules | `substate == "alignment"` -> `["phase:alignment"]` |
+| **transition** | 5 rules | `state_transition == "phase_start"` -> `["transition:phase-start"]` |
+| **skill** | 5 rules | `skill == "task"` -> `["skill:task"]` |
+| **trigger** | 3 rules | `trigger == "build"` -> `["trigger:build"]` |
+| **scope** | 8 rules | `repos_changed_count > 2` -> `["scope:cross-repo"]`, file glob matches |
+| **repo** | 12 rules | `files_modified matches */Dress/*` -> `["repo:dress"]` |
+| **epoch** | 3 rules | `has_epoch_summary == true` -> `["epoch:closing"]` |
+| **linkage** | 4 rules | `issue_refs is_empty: false` -> `["linkage:has-issue"]` |
+| **quality** | 4 rules | `gate_passed == true` -> `["outcome:gate-pass"]` |
+| **outcome** (build) | 3 rules | `build_success == true` -> `["outcome:build-success"]` |
+
+**Total:** ~56 declarative rules replacing the current 18.
+
+**Backward compat:** Old flat tag names dropped from rules.yaml. Existing entries in the archive keep their old `auto_tags` values unchanged (immutable archive). New entries get colon-delimited tags.
+
+### Wave 3: Hooks Rewrite (Complex Tags)
 
 **Files:**
-- `.claude/skills/self-improve/SKILL.md` (MODIFY) -- Logging phase uses enriched labels
-- Run `sbs labels sync` to create all labels on GitHub
+- `dev/storage/tagging/hooks/session_profiler.py` (CREATE, replaces `session_quality.py`) -- Comprehensive session behavioral analysis
+- `dev/storage/tagging/hooks/signal_detector.py` (CREATE, replaces `cli_arg_misfires.py`) -- Anomaly and red flag detection
+- `dev/storage/tagging/hooks/outcome_tagger.py` (CREATE) -- Outcome tags requiring cross-reference logic
+- `dev/storage/tagging/rules.yaml` (MODIFY) -- Update hooks section to reference new modules
 
-**Self-improve label mapping:**
-- Always: `origin:self-improve`
-- Map pillar to `pillar:*` label
-- Infer `friction:*` from finding content
-- Include `impact:*` from finding impact
+**Hook 1: `session_profiler.py`** -- Covers dimensions: session, token, thinking, tool, model
 
-### Wave 5: Documentation (handled by /update-and-archive)
+Tags produced (~30):
+- `session:exploration-heavy`, `session:edit-heavy`, `session:creation-heavy`
+- `session:bash-heavy`, `session:mcp-heavy`, `session:search-heavy`, `session:delegation-heavy`
+- `session:interactive`, `session:one-shot`, `session:multi-session`, `session:long`, `session:short`
+- `token:input-heavy`, `token:output-heavy`, `token:cache-efficient`, `token:cache-unused`, `token:total-heavy`, `token:total-light`
+- `thinking:heavy`, `thinking:none`, `thinking:extended`
+- `tool:read-dominant`, `tool:edit-dominant`, `tool:bash-dominant`, `tool:failure-rate-high`, `tool:failure-rate-zero`
+- `model:opus`, `model:sonnet`, `model:haiku`, `model:multi-model`
 
-No manual wave needed -- `/update-and-archive` at task end will refresh CLAUDE.md, oracle, and READMEs.
+**Hook 2: `signal_detector.py`** -- Covers dimension: signal
+
+Tags produced (~10):
+- `signal:backward-transition` (phase regression from entry sequence)
+- `signal:bash-error-rate-high` (>10% bash errors, migrated from old hook)
+- `signal:cli-misfire` (argument pattern errors)
+- `signal:max-tokens-hit` (stop_reason analysis)
+- `signal:user-correction` (correction keywords in notes)
+- `signal:retry-loop` (same substate visited 3+ times)
+- `signal:high-churn` (entries > 2x phases visited)
+- `signal:context-compaction` (session continuation detected)
+- `signal:sync-error` (iCloud sync failure)
+
+**Hook 3: `outcome_tagger.py`** -- Covers dimension: outcome (complex cases)
+
+Tags produced (~8):
+- `outcome:clean-execution` (0 tool failures)
+- `outcome:had-retries` (repeated tool calls on same file)
+- `outcome:task-completed`, `outcome:task-incomplete`
+- `outcome:pr-created`, `outcome:pr-merged`
+- `outcome:quality-improved`, `outcome:quality-regressed`, `outcome:quality-stable`
+
+### Wave 4: Tests
+
+**Files:**
+- `dev/scripts/sbs/tests/pytest/test_agent_state_taxonomy.py` (EXTEND from Wave 1) -- Add rule evaluation tests, hook unit tests
+- `dev/scripts/sbs/tests/pytest/test_tagger_v2.py` (CREATE) -- Integration tests: mock entries through full pipeline, verify correct tags
+
+**Test categories (~20 tests, all evergreen):**
+- Taxonomy: uniqueness, naming format, dimension coverage, tag count bounds
+- Context: all new fields populated correctly from entry + claude_data
+- Rules: each dimension produces expected tags given mock context
+- Hooks: session profiler produces correct tags for known session patterns
+- Hooks: signal detector flags known anomalies
+- Integration: full pipeline mock entry → expected tag set
 
 ---
 
@@ -93,9 +147,9 @@ gates:
 
 ## Verification
 
-1. `sbs labels list` renders full taxonomy tree
-2. `sbs labels sync --dry-run` reports ~125 labels to create
-3. `sbs_issue_create(title="test", labels=["bug:visual", "area:sbs:graph", "friction:slow-feedback"])` creates issue with all labels
-4. `/log graph nodes overlap` infers `bug:visual` + `area:sbs:graph` + `origin:agent`
-5. Evergreen tests pass
-6. `sbs labels sync` creates all labels on GitHub
+1. `python3 -m sbs archive upload` on a real session produces colon-delimited tags across multiple dimensions
+2. Tags include `phase:*`, `skill:*`, `trigger:*` (from declarative rules)
+3. Tags include `session:*`, `token:*`, `tool:*` (from hooks)
+4. `sbs_tag_effectiveness()` shows new tags with varied frequency distributions (not all noise)
+5. All evergreen tests pass
+6. Old archive entries retain their original flat `auto_tags` (immutability preserved)
