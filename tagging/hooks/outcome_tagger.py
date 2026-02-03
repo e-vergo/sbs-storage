@@ -87,7 +87,7 @@ def tag_outcomes(entry: "ArchiveEntry", sessions: list["SessionData"]) -> list[s
         or has_user_correction
         or has_high_churn
         or has_sync_error
-        or (bash_calls > 10 and bash_errors / bash_calls > 0.1)
+        or bash_errors >= 3
     )
 
     if total_failures == 0 and not signals_would_fire:
@@ -136,5 +136,45 @@ def tag_outcomes(entry: "ArchiveEntry", sessions: list["SessionData"]) -> list[s
                 tags.append("outcome:quality-regressed")
             else:
                 tags.append("outcome:quality-stable")
+
+    # ------------------------------------------------------------------
+    # outcome:scope-expanded
+    # Plan files modified during execution phase suggests scope creep.
+    # ------------------------------------------------------------------
+    if (
+        entry.global_state
+        and entry.global_state.get("substate") == "execution"
+    ):
+        plan_edited = False
+        for session in sessions:
+            for f in session.files_edited:
+                if "/plans/" in f or f.endswith("SKILL.md"):
+                    plan_edited = True
+                    break
+            if plan_edited:
+                break
+        if plan_edited:
+            tags.append("outcome:scope-expanded")
+
+    # ------------------------------------------------------------------
+    # outcome:build-after-fix-failed
+    # Build-triggered entry that failed, when recent sessions had edits.
+    # TODO: Check previous entry for file edits (requires archive index
+    # access which is not available in the current hook signature).
+    # For now, check if the current entry has both a failed build and
+    # session edits, which approximates a fix-then-build-fail pattern.
+    # ------------------------------------------------------------------
+    if entry.trigger == "build":
+        build_failed = False
+        if entry.gate_validation and not entry.gate_validation.get("passed", True):
+            build_failed = True
+        # Also check quality_scores for build failure indicators
+        if entry.quality_scores and entry.quality_scores.get("overall") == 0:
+            build_failed = True
+
+        has_edits = bool(file_edit_counts)
+
+        if build_failed and has_edits:
+            tags.append("outcome:build-after-fix-failed")
 
     return tags
