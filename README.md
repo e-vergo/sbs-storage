@@ -200,7 +200,7 @@ This command:
 1. Extracts relevant data from `~/.claude`
 2. Creates an archive entry with session data
 3. Applies auto-tagging rules
-4. Auto-runs T5+T6 validators when build trigger has empty quality scores
+4. Runs deterministic validators when `--validate` is passed, or auto-runs when build trigger has empty quality scores
 5. Commits and pushes all repos (porcelain guarantee)
 6. Syncs to iCloud
 
@@ -212,6 +212,7 @@ sbs archive upload --project SBSTest  # Associate with project
 sbs archive upload --trigger manual   # Set trigger type (build/manual/skill)
 sbs archive upload --issue-refs 42,43 # Link GitHub issues to entry
 sbs archive upload --pr-number 123    # Link GitHub PR to entry
+sbs archive upload --validate         # Run validators and attach quality scores
 ```
 
 ### Data Extracted from ~/.claude
@@ -408,6 +409,7 @@ Validators provide automated quality checks.
 
 | Validator | Category | Purpose |
 |-----------|----------|---------|
+| `cli-execution` | code | Evergreen pytest suite pass/fail (T1) |
 | `visual-compliance` | visual | AI vision validation of screenshots |
 | `timing` | timing | Build phase timing metrics |
 | `git-metrics` | git | Commit/diff tracking |
@@ -420,7 +422,35 @@ Validators provide automated quality checks.
 | `jarring-check` | design | Visual jarring detection |
 | `professional-score` | design | Professional appearance rating |
 
-### Usage
+### Validator Runner
+
+The runner (`sbs/tests/validators/runner.py`) is the central orchestration layer for running validators:
+
+- Maps validator names (registry keys) to metric IDs (ledger keys)
+- Builds `ValidationContext` with project paths, git commits, screenshot directories
+- Runs validators, extracts scores, and persists results to the quality score ledger
+- Automatically skips heuristic validators when no screenshots are available
+
+```python
+from sbs.tests.validators.runner import run_validators
+
+# Run all deterministic validators for SBSTest
+result = run_validators(project="SBSTest", skip_heuristic=True)
+
+# Run specific metrics
+result = run_validators(
+    project="SBSTest",
+    metric_ids=["t1-cli-execution", "t5-color-match"],
+)
+
+# Check results
+print(result.overall_passed)   # True if all ran validators passed
+print(result.ledger_updated)   # True if ledger was written
+print(result.skipped)          # Metric IDs that were skipped
+print(result.errors)           # Error messages from failed validators
+```
+
+### Individual Validator Usage
 
 ```python
 from sbs.validators import discover_validators, registry, ValidationContext
