@@ -16,6 +16,17 @@ if TYPE_CHECKING:
     from sbs.archive.session_data import SessionData
 
 
+# Patterns that indicate non-actionable errors (user rejections, expected states)
+NON_ERROR_PATTERNS = [
+    "user doesn't want",
+    "sibling tool call errored",
+    "nothing to commit",
+    "already up to date",
+    "already exists",
+    "ignored by one of your .gitignore",
+]
+
+
 def detect_misfires(entry: "ArchiveEntry", sessions: list["SessionData"]) -> list[str]:
     """
     Analyze sessions for CLI argument misfire patterns.
@@ -37,7 +48,10 @@ def detect_misfires(entry: "ArchiveEntry", sessions: list["SessionData"]) -> lis
             if tc.tool_name == "Bash":
                 bash_calls += 1
                 if tc.error:
-                    bash_errors += 1
+                    # Filter non-actionable errors
+                    error_text = str(tc.error).lower()
+                    if not any(p in error_text for p in NON_ERROR_PATTERNS):
+                        bash_errors += 1
 
     # Simple heuristic: if >10% of Bash calls have errors, flag it
     if bash_calls > 10 and bash_errors / bash_calls > 0.1:
