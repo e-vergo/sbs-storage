@@ -1,17 +1,17 @@
 # Quality Score Report
 
-**Project:** SBSTest | **Last Evaluated:** 2026-02-03T04:43:56.230895
+**Project:** SBSTest | **Last Evaluated:** 2026-02-03T17:58:46.852792
 
-## Overall Score: 66.95%
+## Overall Score: 66.26%
 
 | Metric | Name | Weight | Score | Status |
 |--------|------|--------|-------|--------|
 | t1-cli-execution | CLI Execution | 10% | 0.0 | FAIL |
-| t2-ledger-population | Ledger Population | 10% | 49.8 | FAIL |
+| t2-ledger-population | Ledger Population | 10% | 49.0 | FAIL |
 | t3-dashboard-clarity | Dashboard Clarity | 10% | - | - |
 | t4-toggle-discoverability | Toggle Discoverability | 10% | - | - |
 | t5-color-match | Status Color Match | 15% | 100.0 | PASS |
-| t6-css-coverage | CSS Variable Coverage | 15% | 90.0 | FAIL |
+| t6-css-coverage | CSS Variable Coverage | 15% | 88.2 | FAIL |
 | t7-jarring | Jarring-Free Check | 15% | - | - |
 | t8-professional | Professional Score | 15% | - | - |
 
@@ -22,7 +22,7 @@
 
 ### t2-ledger-population
 - Fields never populated: sync_error
-- Population rate 49.8% below threshold 70.0%
+- Population rate 49.0% below threshold 70.0%
 
 ### t5-color-match
 - All 6 status colors match canonical values
@@ -39,10 +39,11 @@
 - common.css:567: hardcoded rgba(0, 0, 0, 0.2) in box-shadow
 - common.css:587: hardcoded rgba(0, 0, 0, 0.4) in background
 - common.css:600: hardcoded rgba(0, 0, 0, 0.3) in box-shadow
-- ... and 19 more violations
+- ... and 25 more violations
 
 ## Score History
 
 | Timestamp | Overall Score |
 |-----------|---------------|
 | 2026-02-03T04:43:56 | 66.95% |
+| 2026-02-03T17:58:46 | 66.26% |
