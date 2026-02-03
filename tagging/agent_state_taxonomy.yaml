@@ -1,0 +1,376 @@
+# Agent-State Tag Taxonomy v2.0
+# Hierarchical colon-delimited tags for archive entry classification.
+# Each tag encodes one observable dimension of agent/session state.
+
+version: "2.0"
+name: "agent-state"
+description: "Hierarchical colon-delimited tag taxonomy for archive entry classification"
+
+dimensions:
+  # =========================================================================
+  # 1. phase -- Skill lifecycle phase active when entry was created
+  # =========================================================================
+  phase:
+    description: "Skill lifecycle phase active when entry was created"
+    tags:
+      - name: "phase:alignment"
+        description: "In alignment/Q&A phase of a skill"
+      - name: "phase:planning"
+        description: "In planning phase of a skill"
+      - name: "phase:execution"
+        description: "In execution phase of a skill"
+      - name: "phase:finalization"
+        description: "In finalization phase of a skill"
+      - name: "phase:readme-wave"
+        description: "In README update wave of update-and-archive"
+      - name: "phase:oracle-regen"
+        description: "In oracle regeneration phase of update-and-archive"
+      - name: "phase:porcelain"
+        description: "In porcelain/git-sync phase of update-and-archive"
+      - name: "phase:archive-upload"
+        description: "In archive upload phase of update-and-archive"
+      - name: "phase:idle"
+        description: "No skill active, system is idle between tasks"
+
+  # =========================================================================
+  # 2. transition -- State machine transition type for this entry
+  # =========================================================================
+  transition:
+    description: "State machine transition type recorded in this entry"
+    tags:
+      - name: "transition:phase-start"
+        description: "Entry marks the start of a new phase"
+      - name: "transition:phase-end"
+        description: "Entry marks the end of a phase"
+      - name: "transition:handoff"
+        description: "Atomic skill-to-skill handoff occurred"
+      - name: "transition:epoch-close"
+        description: "Entry closes an epoch (update-and-archive completion)"
+      - name: "transition:backward"
+        description: "Phase regression detected (went back to earlier phase)"
+      - name: "transition:none"
+        description: "No state transition in this entry"
+
+  # =========================================================================
+  # 3. skill -- Which skill was active when entry was created
+  # =========================================================================
+  skill:
+    description: "Which skill was active when the entry was created"
+    tags:
+      - name: "skill:task"
+        description: "The /task skill was active"
+      - name: "skill:self-improve"
+        description: "The /self-improve skill was active"
+      - name: "skill:update-and-archive"
+        description: "The /update-and-archive skill was active"
+      - name: "skill:log"
+        description: "The /log skill was active"
+      - name: "skill:none"
+        description: "No skill was active (idle state)"
+
+  # =========================================================================
+  # 4. trigger -- What caused this archive entry to be created
+  # =========================================================================
+  trigger:
+    description: "What caused this archive entry to be created"
+    tags:
+      - name: "trigger:build"
+        description: "Entry created by a build pipeline run"
+      - name: "trigger:skill"
+        description: "Entry created by a skill lifecycle event"
+      - name: "trigger:manual"
+        description: "Entry created by manual sbs archive upload"
+
+  # =========================================================================
+  # 5. session -- Behavioral profile of the Claude Code session
+  # =========================================================================
+  session:
+    description: "Behavioral profile of the Claude Code session"
+    tags:
+      - name: "session:exploration-heavy"
+        description: "Session dominated by file reads and searches"
+      - name: "session:edit-heavy"
+        description: "Session dominated by file edits and writes"
+      - name: "session:creation-heavy"
+        description: "Session dominated by new file creation"
+      - name: "session:bash-heavy"
+        description: "Session dominated by shell command execution"
+      - name: "session:mcp-heavy"
+        description: "Session dominated by MCP tool calls"
+      - name: "session:search-heavy"
+        description: "Session dominated by grep/glob/search operations"
+      - name: "session:delegation-heavy"
+        description: "Session dominated by agent spawning and orchestration"
+      - name: "session:interactive"
+        description: "Session had significant back-and-forth with user"
+      - name: "session:one-shot"
+        description: "Session completed in a single agent turn"
+      - name: "session:multi-session"
+        description: "Work spanned multiple Claude Code sessions"
+      - name: "session:long"
+        description: "Session duration exceeded 30 minutes"
+      - name: "session:short"
+        description: "Session duration under 5 minutes"
+      - name: "session:tool-diverse"
+        description: "Session used 10+ unique tool types"
+      - name: "session:tool-narrow"
+        description: "Session used fewer than 4 unique tool types"
+
+  # =========================================================================
+  # 6. outcome -- Observable results of the session or skill
+  # =========================================================================
+  outcome:
+    description: "Observable results of the session or skill"
+    tags:
+      - name: "outcome:gate-pass"
+        description: "Gate validation passed"
+      - name: "outcome:gate-fail"
+        description: "Gate validation failed"
+      - name: "outcome:gate-override"
+        description: "Gate failure was overridden by user"
+      - name: "outcome:build-success"
+        description: "Project build completed successfully"
+      - name: "outcome:build-fail"
+        description: "Project build failed"
+      - name: "outcome:pr-created"
+        description: "A pull request was created during this session"
+      - name: "outcome:pr-merged"
+        description: "A pull request was merged during this session"
+      - name: "outcome:issue-created"
+        description: "A GitHub issue was created during this session"
+      - name: "outcome:issue-closed"
+        description: "A GitHub issue was closed during this session"
+      - name: "outcome:clean-execution"
+        description: "Task completed without retries or corrections"
+      - name: "outcome:had-retries"
+        description: "Task required retries or error recovery"
+      - name: "outcome:task-completed"
+        description: "The skill/task reached successful completion"
+      - name: "outcome:task-incomplete"
+        description: "The skill/task did not reach completion"
+      - name: "outcome:quality-improved"
+        description: "Quality scores improved vs previous entry"
+      - name: "outcome:quality-regressed"
+        description: "Quality scores decreased vs previous entry"
+      - name: "outcome:quality-stable"
+        description: "Quality scores unchanged vs previous entry"
+
+  # =========================================================================
+  # 7. signal -- Anomaly or attention signals detected
+  # =========================================================================
+  signal:
+    description: "Anomaly or attention signals detected in the session"
+    tags:
+      - name: "signal:backward-transition"
+        description: "Phase regression detected in state machine"
+      - name: "signal:bash-error-rate-high"
+        description: "More than 30% of bash commands returned non-zero"
+      - name: "signal:cli-misfire"
+        description: "CLI argument errors detected in session"
+      - name: "signal:max-tokens-hit"
+        description: "Session hit the maximum token limit"
+      - name: "signal:context-compaction"
+        description: "Context window compaction occurred mid-session"
+      - name: "signal:user-correction"
+        description: "User corrected or redirected agent behavior"
+      - name: "signal:retry-loop"
+        description: "Agent attempted the same operation 3+ times"
+      - name: "signal:high-churn"
+        description: "Files were edited then reverted or re-edited repeatedly"
+      - name: "signal:sync-error"
+        description: "Git sync or push operation failed"
+      - name: "signal:stale-metrics"
+        description: "Quality metrics are stale (not updated recently)"
+
+  # =========================================================================
+  # 8. scope -- Breadth and type of changes
+  # =========================================================================
+  scope:
+    description: "Breadth and type of changes in the session"
+    tags:
+      - name: "scope:cross-repo"
+        description: "Changes touched 3+ repositories"
+      - name: "scope:multi-repo"
+        description: "Changes touched 2 repositories"
+      - name: "scope:single-repo"
+        description: "Changes confined to a single repository"
+      - name: "scope:docs-only"
+        description: "Only documentation files were modified"
+      - name: "scope:code-only"
+        description: "Only code files were modified (no docs)"
+      - name: "scope:mixed"
+        description: "Both code and documentation files were modified"
+      - name: "scope:css-js"
+        description: "Changes included CSS or JavaScript assets"
+      - name: "scope:lean"
+        description: "Changes included Lean source files"
+      - name: "scope:python"
+        description: "Changes included Python source files"
+      - name: "scope:config"
+        description: "Changes included configuration files"
+      - name: "scope:wide"
+        description: "Changes touched 10+ files across multiple concerns"
+      - name: "scope:narrow"
+        description: "Changes confined to 3 or fewer files"
+
+  # =========================================================================
+  # 9. repo -- Which repositories were touched
+  # =========================================================================
+  repo:
+    description: "Which repositories were touched in this session"
+    tags:
+      - name: "repo:dress"
+        description: "Dress repository was modified"
+      - name: "repo:runway"
+        description: "Runway repository was modified"
+      - name: "repo:sbs-test"
+        description: "SBS-Test repository was modified"
+      - name: "repo:gcr"
+        description: "GCR (General Crystallographic Restriction) was modified"
+      - name: "repo:pnt"
+        description: "PNT (PrimeNumberTheoremAnd) was modified"
+      - name: "repo:verso"
+        description: "Verso fork was modified"
+      - name: "repo:subverso"
+        description: "SubVerso fork was modified"
+      - name: "repo:lean-architect"
+        description: "LeanArchitect fork was modified"
+      - name: "repo:dress-blueprint-action"
+        description: "dress-blueprint-action (CI/CD + assets) was modified"
+      - name: "repo:sbs-lsp-mcp"
+        description: "sbs-lsp-mcp server was modified"
+      - name: "repo:dev-scripts"
+        description: "dev/scripts Python tooling was modified"
+      - name: "repo:dev-storage"
+        description: "dev/storage data or config was modified"
+
+  # =========================================================================
+  # 10. epoch -- Position and character of the current epoch
+  # =========================================================================
+  epoch:
+    description: "Position and character of the current epoch"
+    tags:
+      - name: "epoch:opening"
+        description: "First entry in a new epoch"
+      - name: "epoch:closing"
+        description: "Final entry closing this epoch"
+      - name: "epoch:long"
+        description: "Epoch spans 20+ entries"
+      - name: "epoch:short"
+        description: "Epoch spans fewer than 5 entries"
+      - name: "epoch:build-heavy"
+        description: "Epoch contains 3+ build-triggered entries"
+      - name: "epoch:no-builds"
+        description: "Epoch contains zero build-triggered entries"
+
+  # =========================================================================
+  # 11. linkage -- GitHub artifact linkage
+  # =========================================================================
+  linkage:
+    description: "GitHub artifact linkage for this entry"
+    tags:
+      - name: "linkage:has-issue"
+        description: "Entry references at least one GitHub issue"
+      - name: "linkage:has-pr"
+        description: "Entry references at least one pull request"
+      - name: "linkage:has-plan"
+        description: "A plan file was active during this session"
+      - name: "linkage:issue-driven"
+        description: "Task was initiated from a GitHub issue"
+      - name: "linkage:multi-issue"
+        description: "Entry references 2+ GitHub issues"
+      - name: "linkage:standalone"
+        description: "No issue or PR references"
+
+  # =========================================================================
+  # 12. token -- Token usage profile
+  # =========================================================================
+  token:
+    description: "Token usage profile for the session"
+    tags:
+      - name: "token:input-heavy"
+        description: "Input tokens exceeded 500K"
+      - name: "token:output-heavy"
+        description: "Output tokens exceeded 50K"
+      - name: "token:cache-efficient"
+        description: "Cache read tokens exceeded 50% of input tokens"
+      - name: "token:cache-unused"
+        description: "Cache read tokens below 10% of input tokens"
+      - name: "token:total-heavy"
+        description: "Total tokens exceeded 1M"
+      - name: "token:total-light"
+        description: "Total tokens under 100K"
+      - name: "token:efficient"
+        description: "High output-to-input ratio (productive session)"
+
+  # =========================================================================
+  # 13. thinking -- Extended thinking usage
+  # =========================================================================
+  thinking:
+    description: "Extended thinking usage in the session"
+    tags:
+      - name: "thinking:heavy"
+        description: "10+ thinking blocks used in session"
+      - name: "thinking:none"
+        description: "No thinking blocks used"
+      - name: "thinking:extended"
+        description: "At least one thinking block exceeded 2K tokens"
+      - name: "thinking:deep"
+        description: "Average thinking block exceeded 1K tokens"
+
+  # =========================================================================
+  # 14. tool -- Tool usage patterns
+  # =========================================================================
+  tool:
+    description: "Tool usage patterns in the session"
+    tags:
+      - name: "tool:read-dominant"
+        description: "Read/file-access tools were the most used category"
+      - name: "tool:edit-dominant"
+        description: "Edit/write tools were the most used category"
+      - name: "tool:bash-dominant"
+        description: "Bash tool was the most used tool"
+      - name: "tool:task-dominant"
+        description: "Task/agent spawning was the most used tool"
+      - name: "tool:failure-rate-high"
+        description: "More than 20% of tool calls returned errors"
+      - name: "tool:failure-rate-zero"
+        description: "Zero tool call failures in session"
+      - name: "tool:slow-operations"
+        description: "Session included operations that timed out or took >60s"
+
+  # =========================================================================
+  # 15. quality -- Quality score state
+  # =========================================================================
+  quality:
+    description: "Quality score state for this entry"
+    tags:
+      - name: "quality:high"
+        description: "Overall quality score above 0.9"
+      - name: "quality:low"
+        description: "Overall quality score below 0.7"
+      - name: "quality:all-pass"
+        description: "All deterministic validators passed"
+      - name: "quality:t5-fail"
+        description: "T5 (status color match) validator failed"
+      - name: "quality:t6-fail"
+        description: "T6 (CSS variable coverage) validator failed"
+      - name: "quality:unscored"
+        description: "No quality scores available for this entry"
+
+  # =========================================================================
+  # 16. model -- Model usage
+  # =========================================================================
+  model:
+    description: "Model usage in the session"
+    tags:
+      - name: "model:opus"
+        description: "Opus model was used (primary or only)"
+      - name: "model:sonnet"
+        description: "Sonnet model was used (primary or only)"
+      - name: "model:haiku"
+        description: "Haiku model was used (primary or only)"
+      - name: "model:multi-model"
+        description: "Multiple model versions were used in session"
+      - name: "model:single-model"
+        description: "Only one model version was used in session"
