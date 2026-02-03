@@ -21,6 +21,9 @@
 | `sbs readme-check` | Check which READMEs need updating |
 | `sbs validate-all` | Run compliance + quality score status |
 | `sbs test-catalog` | List all testable components with metadata |
+| `sbs labels sync` | Sync label taxonomy to GitHub |
+| `sbs labels list` | List all labels from taxonomy |
+| `sbs labels validate <label>...` | Validate label names against taxonomy |
 
 **Run from:** `/Users/eric/GitHub/Side-By-Side-Blueprint/dev/scripts`
 
@@ -647,6 +650,76 @@ sbs_run_tests(tier="evergreen")
 - **MCP Tools (11)**: SBS tools with category and read-only status
 - **Pytest Tests**: All tests with tier markers
 - **CLI Commands**: All sbs subcommands with availability
+
+---
+
+## GitHub Label Taxonomy
+
+An 11-dimension, ~105 label taxonomy for structured issue classification.
+
+### Taxonomy Definition
+
+The canonical taxonomy lives at `dev/storage/labels/taxonomy.yaml`. It defines labels across these dimensions:
+
+| Dimension | Example Labels | Purpose |
+|-----------|---------------|---------|
+| `origin` | `origin:user`, `origin:agent`, `origin:self-improve` | Who initiated the issue |
+| `type` | `bug:visual`, `feature:new`, `idea:design`, `housekeeping:docs` | What kind of work |
+| `area_sbs` | `area:sbs:graph`, `area:sbs:dashboard`, `area:sbs:css` | Which part of the generated product |
+| `area_devtools` | `area:devtools:archive`, `area:devtools:mcp`, `area:devtools:validators` | Which part of the dev toolchain |
+| `area_lean` | `area:lean:dress`, `area:lean:runway`, `area:lean:verso` | Which Lean repo or framework component |
+| `loop` | `loop:work`, `loop:archive`, `loop:analyze`, `loop:improve` | Where in the self-improvement cycle |
+| `impact` | `impact:visual`, `impact:functional`, `impact:dx` | What does this affect |
+| `scope` | `scope:single-repo`, `scope:cross-repo`, `scope:architectural` | How big is the change |
+| `pillar` | `pillar:user-effectiveness`, `pillar:claude-execution` | Self-improvement analysis pillar |
+| `project` | `project:sbs-test`, `project:gcr`, `project:pnt` | Which showcase project surfaces this |
+| `friction` | `friction:context-loss`, `friction:tooling-gap`, `friction:slow-feedback` | What pain point is addressed |
+
+Plus standalone labels like `ai-authored`.
+
+### Label CLI
+
+```bash
+# Sync all labels to GitHub (creates/updates/preserves)
+sbs labels sync
+
+# Dry-run sync (show what would change)
+sbs labels sync --dry-run
+
+# List all taxonomy labels
+sbs labels list
+
+# Validate label names
+sbs labels validate "bug:visual" "area:sbs:graph"
+```
+
+### Python API
+
+```python
+from sbs.labels import load_taxonomy, get_all_labels, validate_labels, get_label_color
+
+# Get all ~105 label names
+all_labels = get_all_labels()
+
+# Validate a set of labels
+valid, invalid = validate_labels(["bug:visual", "not-a-label"])
+
+# Get color for a label
+color = get_label_color("bug:visual")  # "#d73a4a"
+```
+
+### MCP Integration
+
+The `sbs_issue_create` MCP tool accepts a `labels` parameter for applying taxonomy labels when creating issues. The `sbs_issue_summary` tool groups issues by taxonomy dimension for structured reporting.
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `dev/storage/labels/taxonomy.yaml` | Canonical taxonomy definition |
+| `dev/scripts/sbs/labels/__init__.py` | Taxonomy loader, validator, color lookup |
+| `dev/scripts/sbs/labels/sync.py` | GitHub label sync (create/update, never delete) |
+| `dev/scripts/sbs/tests/pytest/test_taxonomy.py` | Taxonomy tests (evergreen tier) |
 
 ---
 
