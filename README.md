@@ -519,6 +519,24 @@ The Oracle is auto-regenerated during `/update-and-archive` skill execution.
 
 ---
 
+## Skill Orchestration Tools
+
+MCP tools for managing skill state machine transitions:
+
+| Tool | Purpose |
+|------|---------|
+| `sbs_skill_status` | Get current skill/substate (read-only) |
+| `sbs_skill_start` | Start a skill, claim global_state |
+| `sbs_skill_transition` | Move to next phase within a skill |
+| `sbs_skill_end` | End skill, release global_state |
+
+These tools manage the `global_state` field in `archive_index.json`, enabling:
+- Sequential skill execution (only one skill active at a time)
+- Phase tracking within skills (alignment -> planning -> execution -> finalization)
+- Epoch boundaries for `/update-and-archive`
+
+---
+
 ## README Staleness Detection
 
 Identifies which READMEs may need updating based on git state.
