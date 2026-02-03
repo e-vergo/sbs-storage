@@ -39,7 +39,8 @@ def assess_quality(entry: "ArchiveEntry", sessions: list["SessionData"]) -> list
         total_writes += len(session.files_written)
 
     # Simple heuristics
-    if total_edits > 20:
+    total_calls = total_reads + total_edits + total_writes
+    if total_calls > 50 and total_edits / max(total_calls, 1) > 0.5:
         tags.append("editing-heavy")
 
     if total_reads > 50 and total_edits < 5:
