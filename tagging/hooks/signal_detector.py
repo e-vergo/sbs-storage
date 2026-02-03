@@ -1,7 +1,8 @@
 """Signal detector hook -- identifies anomalies and red flags in sessions.
 
 Produces tags in the ``signal:`` namespace:
-- bash-error-rate-high: Elevated Bash error rate
+- consecutive-bash-failures: 3+ bash commands failed in a row
+- same-command-retry: Same command (tool+file) run 3+ times
 - cli-misfire: CLI argument/option errors detected
 - max-tokens-hit: Model hit max token limit
 - user-correction: Entry notes suggest a correction/redo
@@ -72,27 +73,51 @@ def detect_signals(entry: "ArchiveEntry", sessions: list["SessionData"]) -> list
     tags: list[str] = []
 
     # ------------------------------------------------------------------
-    # signal:bash-error-rate-high
+    # signal:consecutive-bash-failures
+    # Fires when 3+ bash commands fail in a row (real errors only).
     # ------------------------------------------------------------------
-    bash_errors = 0
-    bash_calls = 0
     has_cli_misfire = False
+    max_consecutive_failures = 0
 
     for session in sessions:
+        consecutive_failures = 0
         for tc in session.tool_calls:
             if tc.tool_name == "Bash":
-                bash_calls += 1
                 if tc.error:
                     error_lower = str(tc.error).lower()
                     if not any(p in error_lower for p in NON_ERROR_PATTERNS):
-                        bash_errors += 1
+                        consecutive_failures += 1
+                        max_consecutive_failures = max(
+                            max_consecutive_failures, consecutive_failures
+                        )
+                    else:
+                        consecutive_failures = 0
 
                     # Check for CLI misfire patterns
                     if any(p in error_lower for p in CLI_MISFIRE_PATTERNS):
                         has_cli_misfire = True
+                else:
+                    consecutive_failures = 0
 
-    if bash_calls > 10 and bash_errors / bash_calls > 0.1:
-        tags.append("signal:bash-error-rate-high")
+    if max_consecutive_failures >= 3:
+        tags.append("signal:consecutive-bash-failures")
+
+    # ------------------------------------------------------------------
+    # signal:same-command-retry
+    # Fires when the same command (tool+file) is run 3+ times total.
+    # Uses _tool_file_sig for signature matching.
+    # ------------------------------------------------------------------
+    from collections import Counter as _Counter
+
+    sig_counts: _Counter[str] = _Counter()
+    for session in sessions:
+        for tc in session.tool_calls:
+            sig = _tool_file_sig(tc)
+            if sig:
+                sig_counts[sig] += 1
+
+    if sig_counts and sig_counts.most_common(1)[0][1] >= 3:
+        tags.append("signal:same-command-retry")
 
     # ------------------------------------------------------------------
     # signal:cli-misfire
