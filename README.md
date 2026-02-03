@@ -78,6 +78,7 @@ Each build creates an `ArchiveEntry`:
 | `notes` | User notes |
 | `tags` | User-defined tags |
 | `screenshots` | List of captured screenshots |
+| `added_at` | UTC ISO timestamp when entry was archived |
 | `repo_commits` | Git commits at build time (all repos) |
 | `issue_refs` | GitHub issue numbers linked to this entry |
 | `pr_refs` | GitHub PR numbers linked to this entry |
@@ -199,8 +200,9 @@ This command:
 1. Extracts relevant data from `~/.claude`
 2. Creates an archive entry with session data
 3. Applies auto-tagging rules
-4. Commits and pushes all repos (porcelain guarantee)
-5. Syncs to iCloud
+4. Auto-runs T5+T6 validators when build trigger has empty quality scores
+5. Commits and pushes all repos (porcelain guarantee)
+6. Syncs to iCloud
 
 ### Options
 
