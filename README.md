@@ -261,21 +261,46 @@ Tags are applied automatically via:
 1. **Declarative rules** in `tagging/rules.yaml`
 2. **Python hooks** in `tagging/hooks/`
 
-#### Rules Format
+#### Agent-State Tag Taxonomy (v2.0)
+
+Tags use a **colon-delimited hierarchical format** (`dimension:value`) across 16 dimensions with ~128 total tags. The taxonomy is defined in `tagging/agent_state_taxonomy.yaml`.
+
+| Dimension | Example Tags | Purpose |
+|-----------|-------------|---------|
+| `phase` | `phase:alignment`, `phase:execution`, `phase:idle` | Skill lifecycle phase |
+| `transition` | `transition:phase-start`, `transition:epoch-close` | State machine transition type |
+| `skill` | `skill:task`, `skill:update-and-archive` | Active skill |
+| `trigger` | `trigger:build`, `trigger:skill`, `trigger:manual` | What created the entry |
+| `session` | `session:edit-heavy`, `session:long`, `session:tool-diverse` | Behavioral profile of session |
+| `outcome` | `outcome:gate-pass`, `outcome:pr-merged`, `outcome:quality-improved` | Observable results |
+| `signal` | `signal:backward-transition`, `signal:retry-loop`, `signal:high-churn` | Anomaly/attention signals |
+| `scope` | `scope:cross-repo`, `scope:lean`, `scope:narrow` | Breadth and type of changes |
+| `repo` | `repo:dress`, `repo:runway`, `repo:dev-scripts` | Which repositories were touched |
+| `epoch` | `epoch:opening`, `epoch:closing`, `epoch:long` | Epoch position and character |
+| `linkage` | `linkage:has-issue`, `linkage:has-pr`, `linkage:issue-driven` | GitHub artifact linkage |
+| `token` | `token:input-heavy`, `token:cache-efficient`, `token:total-light` | Token usage profile |
+| `thinking` | `thinking:heavy`, `thinking:extended`, `thinking:deep` | Extended thinking usage |
+| `tool` | `tool:read-dominant`, `tool:bash-dominant`, `tool:failure-rate-high` | Tool usage patterns |
+| `quality` | `quality:high`, `quality:all-pass`, `quality:t5-fail` | Quality score state |
+| `model` | `model:opus`, `model:multi-model` | Model usage |
+
+#### Rules (v2.0)
+
+46 declarative rules in `tagging/rules.yaml` map entry fields to taxonomy tags:
 
 ```yaml
 rules:
-  - name: successful-build
+  - name: phase-alignment
     condition:
-      field: build_success
-      equals: true
-    tags: ["successful-build"]
+      field: substate
+      equals: "alignment"
+    tags: ["phase:alignment"]
 
-  - name: toolchain-change
+  - name: scope-cross-repo
     condition:
-      field: files_modified
-      matches_any: ["*/Dress/*.lean", "*/Runway/*.lean"]
-    tags: ["toolchain-change"]
+      field: repos_changed_count
+      greater_than: 2
+    tags: ["scope:cross-repo"]
 ```
 
 #### Available Operators
@@ -290,7 +315,15 @@ rules:
 | `matches_any` | Glob pattern match |
 | `is_empty` | Check if empty |
 
-#### Writing Hooks
+#### Tagging Hooks
+
+Three hooks provide session-level behavioral analysis beyond declarative rules:
+
+| Hook | Tags Produced | Purpose |
+|------|---------------|---------|
+| `session_profiler.py` | ~30 (`session:*`, `token:*`, `thinking:*`, `tool:*`, `model:*`) | Profiles session behavior from tool call stats and token usage |
+| `signal_detector.py` | ~10 (`signal:*`) | Detects anomalies: high error rates, retry loops, context compaction |
+| `outcome_tagger.py` | ~8 (`outcome:*`) | Tags observable outcomes: PR/issue events, quality changes |
 
 Hooks receive `(entry, sessions)` and return a list of tags:
 
@@ -299,9 +332,19 @@ Hooks receive `(entry, sessions)` and return a list of tags:
 def analyze(entry, sessions):
     tags = []
     if some_condition(sessions):
-        tags.append("my-tag")
+        tags.append("dimension:value")
     return tags
 ```
+
+#### Key Files
+
+| File | Purpose |
+|------|---------|
+| `tagging/agent_state_taxonomy.yaml` | Canonical taxonomy definition (16 dimensions, ~128 tags) |
+| `tagging/rules.yaml` | 46 declarative rules mapping fields to tags |
+| `tagging/hooks/session_profiler.py` | Session behavioral profiling hook |
+| `tagging/hooks/signal_detector.py` | Anomaly detection hook |
+| `tagging/hooks/outcome_tagger.py` | Outcome classification hook |
 
 ### Build Integration
 
@@ -311,10 +354,7 @@ Archive upload runs automatically at the end of every build:
 ./dev/build-sbs-test.sh  # Triggers archive upload with build context
 ```
 
-Build context passed to tagging:
-- `build_success`: Whether build succeeded
-- `build_duration_seconds`: Total build time
-- `repos_changed`: List of repos with new commits
+Build context passed to tagging includes state machine fields (`skill`, `substate`, `state_transition`), token usage aggregates, quality scores, and repo change data. The `build_tagging_context()` function assembles all fields consumed by rules and hooks.
 
 ### Porcelain Guarantee
 
