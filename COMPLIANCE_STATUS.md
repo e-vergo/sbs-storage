@@ -2,7 +2,7 @@
 
 **Project:** SBSTest | **Commit:** d9bb5a023a98 | **Last Run:** 2026-02-02T23:31:55.473971
 
-## Summary: 0.0% (0/8 checks)
+## Summary: 0.0% (0/7 checks)
 
 | Page | Status | Interactive States |
 |------|--------|-------------------|
@@ -13,7 +13,6 @@
 | paper_tex | ○ | - |
 | paper_verso | ○ | - |
 | pdf_tex | ○ | - |
-| pdf_verso | ○ | - |
 
 ---
 

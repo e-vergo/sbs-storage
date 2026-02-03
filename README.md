@@ -353,7 +353,6 @@ sbs compliance --project SBSTest
 | `paper_tex` | Paper from TeX source |
 | `pdf_tex` | PDF viewer from TeX source |
 | `paper_verso` | Paper from Verso source |
-| `pdf_verso` | PDF viewer from Verso source |
 | `blueprint_verso` | Blueprint from Verso source |
 
 Pages returning HTTP 404 are skipped without error.
