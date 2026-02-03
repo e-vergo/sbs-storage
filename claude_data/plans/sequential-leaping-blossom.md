@@ -1,118 +1,124 @@
-# Implementation Plan: `/self-improve` Skill
+# Implementation Plan: Issue Meta-Labels
 
-**Issue:** #4 - Add `/self-improve` skill for post-hoc session analysis
-**Scope:** Full spec implementation
+**Issue:** #27 - Add meta-labels for issue categorization (SBS, Dev Tools, Misc)
 
 ---
 
 ## Summary
 
-Create a multi-phase skill that analyzes archived Claude Code sessions to identify improvement opportunities across four pillars: user effectiveness, Claude execution, alignment patterns, and system engineering.
+Add a second dimension of labeling to sort GitHub issues by domain area. This is orthogonal to existing type labels (bug/feature/idea).
 
 ---
 
-## Architecture Decisions
+## Scope
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Skill type | Phased (5 substates) | Matches `/task` pattern, needs state tracking for recovery |
-| MCP location | Python CLI | Keeps logic testable, MCP tools wrap CLI commands |
-| Agent | New `sbs-improver` | Distinct from `sbs-developer` (analysis vs implementation) |
-| Ad-hoc tools | Always ask | Per alignment |
-| Logging | Dialogue → Claude logs | Per alignment |
+| Deliverable | Location |
+|-------------|----------|
+| GitHub labels | Repository settings (via `gh label create`) |
+| MCP tool update | `forks/sbs-lsp-mcp/src/sbs_lsp_mcp/sbs_tools.py` |
+| Skill update | `.claude/skills/log/SKILL.md` |
+| Retroactive labeling | All existing issues |
 
 ---
 
-## Deliverables
+## Meta-Labels
 
-### 1. Skill File
-**Path:** `.claude/skills/self-improve/SKILL.md`
-
-5 phases with archive integration:
-- `discovery` → Query archive, generate findings
-- `selection` → Present summary, user picks items
-- `dialogue` → Refine each finding via discussion
-- `logging` → Log confirmed items via `/log`
-- `archive` → Record cycle completion
-
-### 2. Agent File
-**Path:** `.claude/agents/sbs-improver.md`
-
-YAML frontmatter + sections:
-- Analysis capabilities (archive querying, pattern recognition)
-- Four pillars framework
-- Tool inventory (archive tools, search tools)
-- Anti-patterns for analysis work
-
-### 3. MCP Tools (2 new tools)
-**Path:** `forks/sbs-lsp-mcp/src/sbs_lsp_mcp/sbs_tools.py`
-
-| Tool | Purpose |
-|------|---------|
-| `sbs_analysis_summary` | Generate findings report from archive data |
-| `sbs_entries_since_self_improve` | Count entries since last cycle |
-
-### 4. Archive Integration
-**Path:** `dev/scripts/sbs/archive/` (existing)
-
-- Track `self-improve-cycle` tag
-- Store cycle metadata in entry
-- Support `entries_since_last_self_improve` queries
+| Label | Color | Scope |
+|-------|-------|-------|
+| `area:sbs` | `#0E8A16` (green) | Lean, Blueprint, Verso, Dress, Runway, graph, PDF, paper |
+| `area:devtools` | `#5319E7` (purple) | Claude Code, MCP, self-improve, archive, skill, hook, tag |
+| `area:misc` | `#FBCA04` (yellow) | Everything else |
 
 ---
 
 ## Implementation Waves
 
-### Wave 1: Foundation + Tests (Single Agent)
-**Agent:** `sbs-developer`
+### Wave 1: Create GitHub Labels
 
-1. Create `.claude/skills/self-improve/SKILL.md`
-   - YAML frontmatter (name, description, version)
-   - Invocation patterns (`/self-improve`)
-   - Archive protocol (5 phases)
-   - Recovery semantics
+```bash
+gh label create "area:sbs" --color "0E8A16" --description "Core SBS toolchain: Lean, Blueprint, Verso" --repo e-vergo/Side-By-Side-Blueprint
+gh label create "area:devtools" --color "5319E7" --description "Dev tools: MCP, archive, skills, Claude Code" --repo e-vergo/Side-By-Side-Blueprint
+gh label create "area:misc" --color "FBCA04" --description "Miscellaneous" --repo e-vergo/Side-By-Side-Blueprint
+```
 
-2. Create `.claude/agents/sbs-improver.md`
-   - YAML frontmatter (name, model: opus, color)
-   - Four pillars framework documentation
-   - Tool inventory and usage patterns
-   - Analysis workflow guidance
+**Validation:** `gh label list --repo e-vergo/Side-By-Side-Blueprint` shows all 3 labels
 
-3. Create `dev/scripts/sbs/tests/pytest/test_self_improve.py`
-   - `test_skill_file_exists_and_parses` (V1)
-   - `test_agent_file_exists_and_parses` (V2)
-   - `test_archive_entry_with_self_improve_tag` (V5)
-   - `test_recovery_from_each_phase` (V7)
+### Wave 2: Update MCP Tool
 
-**Validation:** Run `pytest test_self_improve.py -k "skill or agent or archive or recovery"` - V1, V2, V5, V7 should pass
+**File:** `forks/sbs-lsp-mcp/src/sbs_lsp_mcp/sbs_tools.py`
 
-### Wave 2: MCP Tools + Tests (Single Agent)
-**Agent:** `sbs-developer`
+Add `area` parameter to `sbs_issue_create`:
+```python
+def sbs_issue_create(
+    ctx: Context,
+    title: Annotated[str, Field(description="Issue title")],
+    body: Annotated[Optional[str], Field(description="Issue body/description")] = None,
+    label: Annotated[Optional[str], Field(description="Issue label: bug, feature, or idea")] = None,
+    area: Annotated[Optional[str], Field(description="Area label: sbs, devtools, or misc")] = None,  # NEW
+) -> IssueCreateResult:
+```
 
-1. Add Pydantic models to `sbs_models.py`:
-   - `AnalysisFinding` - Single improvement finding
-   - `AnalysisSummary` - Aggregated findings report
-   - `SelfImproveEntries` - Entries since last cycle
+Update label list construction:
+```python
+labels = ["ai-authored"]
+if label:
+    labels.append(label)
+if area:
+    labels.append(f"area:{area}")  # NEW
+cmd.extend(["--label", ",".join(labels)])
+```
 
-2. Add tool functions to `sbs_tools.py`:
-   - `sbs_analysis_summary()` with `_impl` function for testability
-   - `sbs_entries_since_self_improve()` with `_impl` function for testability
+**Validation:** Call `sbs_issue_create` with `area="devtools"` and verify label appears
 
-3. Add tests to `test_self_improve.py`:
-   - `test_analysis_summary_returns_structured_data` (V3)
-   - `test_entries_since_self_improve_returns_count` (V4)
+### Wave 3: Update /log Skill
 
-**Validation:** Run `pytest test_self_improve.py` - all 6 automated tests should pass
+**File:** `.claude/skills/log/SKILL.md`
 
-### Wave 3: End-to-End Verification (Manual)
-**Agent:** Orchestrator (top-level)
+Add area inference keywords table:
+```markdown
+### Area Inference from Keywords
 
-1. Invoke `/self-improve` manually
-2. Verify archive state transitions through all 5 phases
-3. Confirm `self-improve-cycle` tag appears in final archive entry
-4. Document any issues for follow-up
+| Area | Keywords |
+|------|----------|
+| **sbs** | "lean", "verso", "blueprint", "dress", "runway", "graph", "pdf", "paper", "toolchain", "status", "color" |
+| **devtools** | "mcp", "archive", "skill", "hook", "tag", "session", "claude", "self-improve", "oracle", "agent" |
+| **misc** | (default if no keywords match) |
+```
 
-**Validation:** V6 (full cycle) verified manually
+Add area parsing to workflow:
+```markdown
+6. **Infer area** from keywords if not explicit
+7. **If area unclear:** Ask user with options:
+   - [S] SBS - Core toolchain work
+   - [D] DevTools - Development infrastructure
+   - [M] Misc - Everything else
+```
+
+Add `--area` flag to invocation patterns:
+```markdown
+| `/log --area sbs <text>` | Explicit area, parse type from text |
+```
+
+**Validation:** Invoke `/log` with SBS-related text, verify area inference works
+
+### Wave 4: Retroactive Labeling
+
+Use `gh` CLI to label existing issues:
+
+```bash
+# Get all open issues
+gh issue list --repo e-vergo/Side-By-Side-Blueprint --state all --json number,title,labels
+
+# Apply labels based on title/content analysis
+gh issue edit <number> --add-label "area:devtools" --repo e-vergo/Side-By-Side-Blueprint
+```
+
+**Assignment Strategy:**
+- Issues #14-26 and #27-28: `area:devtools` (all self-improve/meta-tooling)
+- Issue #4: `area:devtools` (self-improve skill)
+- Future issues: Inferred by `/log` skill
+
+**Validation:** `gh issue list` shows area labels on all issues
 
 ---
 
@@ -122,136 +128,50 @@ YAML frontmatter + sections:
 gates:
   tests: all_pass
   quality:
-    T1: >= 1.0  # CLI commands execute
-    T2: >= 0.8  # Ledger population
-  regression: >= 0
+    T1: ">= 1.0"  # CLI execution (labels created)
+    T2: ">= 0.8"  # Ledger population
 ```
 
 ---
 
-## Validation Checklist → Test Mapping
+## Validation Checklist
 
-Each checklist item maps to a specific automated test:
-
-| # | Checklist Item | Test File | Test Function |
-|---|----------------|-----------|---------------|
-| 1 | `/self-improve` skill file exists and parses correctly | `test_self_improve.py` | `test_skill_file_exists_and_parses` |
-| 2 | `sbs-improver` agent file exists with correct frontmatter | `test_self_improve.py` | `test_agent_file_exists_and_parses` |
-| 3 | `sbs_analysis_summary` MCP tool callable and returns structured data | `test_self_improve.py` | `test_analysis_summary_returns_structured_data` |
-| 4 | `sbs_entries_since_self_improve` MCP tool callable and returns count | `test_self_improve.py` | `test_entries_since_self_improve_returns_count` |
-| 5 | Archive entries with `self-improve-cycle` tag can be created | `test_self_improve.py` | `test_archive_entry_with_self_improve_tag` |
-| 6 | Full cycle can be completed | Manual | End-to-end invocation (not automated) |
-| 7 | Recovery works after context reset | `test_self_improve.py` | `test_recovery_from_each_phase` |
-
-### Test Details
-
-**File:** `dev/scripts/sbs/tests/pytest/test_self_improve.py`
-
-```python
-# Test 1: Skill file validation
-def test_skill_file_exists_and_parses():
-    """V1: Skill file exists and has valid YAML frontmatter."""
-    skill_path = SBS_ROOT / ".claude/skills/self-improve/SKILL.md"
-    assert skill_path.exists()
-    content = skill_path.read_text()
-    # Parse frontmatter
-    assert "name: self-improve" in content
-    assert "version:" in content
-    # Verify all 5 phases documented
-    for phase in ["discovery", "selection", "dialogue", "logging", "archive"]:
-        assert phase in content
-
-# Test 2: Agent file validation
-def test_agent_file_exists_and_parses():
-    """V2: Agent file exists with correct frontmatter."""
-    agent_path = SBS_ROOT / ".claude/agents/sbs-improver.md"
-    assert agent_path.exists()
-    content = agent_path.read_text()
-    assert "name: sbs-improver" in content
-    assert "model: opus" in content
-    # Verify four pillars documented
-    for pillar in ["user effectiveness", "Claude execution", "alignment patterns", "system engineering"]:
-        assert pillar.lower() in content.lower()
-
-# Test 3: MCP tool - analysis summary
-def test_analysis_summary_returns_structured_data():
-    """V3: sbs_analysis_summary returns valid structured data."""
-    # Import the tool function directly (bypass MCP)
-    from sbs_lsp_mcp.sbs_tools import sbs_analysis_summary_impl
-    result = sbs_analysis_summary_impl()
-    assert hasattr(result, 'total_entries')
-    assert hasattr(result, 'entries_by_trigger')
-    assert hasattr(result, 'most_common_tags')
-
-# Test 4: MCP tool - entries since self-improve
-def test_entries_since_self_improve_returns_count():
-    """V4: sbs_entries_since_self_improve returns entry count."""
-    from sbs_lsp_mcp.sbs_tools import sbs_entries_since_self_improve_impl
-    result = sbs_entries_since_self_improve_impl()
-    assert hasattr(result, 'entries_since')
-    assert hasattr(result, 'count_by_trigger')
-    assert isinstance(result.count_by_trigger, dict)
-
-# Test 5: Archive tagging
-def test_archive_entry_with_self_improve_tag():
-    """V5: Can create archive entry with self-improve-cycle tag."""
-    from sbs.archive.entry import ArchiveIndex
-    index = ArchiveIndex.load(ARCHIVE_DIR / "archive_index.json")
-    # Verify tag is in known tags or can be applied
-    # (This tests the schema supports the tag, not actual creation)
-    test_entry = index.entries[list(index.entries.keys())[0]]
-    # Verify tags field is a list that could accept new tags
-    assert isinstance(test_entry.tags, list)
-
-# Test 7: Recovery semantics
-def test_recovery_from_each_phase():
-    """V7: Archive state correctly tracks self-improve phases."""
-    from sbs.archive.entry import ArchiveIndex
-    # Verify global_state schema supports self-improve skill
-    # Create mock state and validate structure
-    mock_state = {"skill": "self-improve", "substate": "discovery"}
-    assert mock_state["skill"] == "self-improve"
-    assert mock_state["substate"] in ["discovery", "selection", "dialogue", "logging", "archive"]
-```
-
-### Test Tier
-
-All tests in `test_self_improve.py` should be marked as `@pytest.mark.dev` tier (run during development, not evergreen).
+| # | Check | Method |
+|---|-------|--------|
+| V1 | 3 labels exist in GitHub | `gh label list` |
+| V2 | MCP tool accepts `area` parameter | Test call via MCP |
+| V3 | `/log` skill infers area from keywords | Manual test with SBS keywords |
+| V4 | All existing issues have area labels | `gh issue list --json labels` |
 
 ---
 
 ## Critical Files
 
-| File | Purpose |
+| File | Changes |
 |------|---------|
-| `.claude/skills/self-improve/SKILL.md` | Skill definition (new) |
-| `.claude/agents/sbs-improver.md` | Agent definition (new) |
-| `forks/sbs-lsp-mcp/src/sbs_lsp_mcp/sbs_tools.py` | MCP tool implementations (edit) |
-| `forks/sbs-lsp-mcp/src/sbs_lsp_mcp/sbs_models.py` | Pydantic models (edit) |
-| `.claude/skills/task/SKILL.md` | Reference for phased skill pattern |
-| `dev/scripts/sbs/archive/entry.py` | Archive entry schema reference |
+| `forks/sbs-lsp-mcp/src/sbs_lsp_mcp/sbs_tools.py` | Add `area` parameter (lines 1348-1429) |
+| `.claude/skills/log/SKILL.md` | Add area inference section |
 
 ---
 
-## Verification Steps
+## Test Plan
 
-1. **After Wave 1:**
+1. **Wave 1 verification:**
    ```bash
-   cd /Users/eric/GitHub/Side-By-Side-Blueprint/dev/scripts
-   python -m pytest sbs/tests/pytest/test_self_improve.py -k "skill or agent or archive or recovery" -v
+   gh label list --repo e-vergo/Side-By-Side-Blueprint | grep "area:"
+   # Expect: 3 lines (area:sbs, area:devtools, area:misc)
    ```
-   Expected: 4 tests pass (V1, V2, V5, V7)
 
-2. **After Wave 2:**
+2. **Wave 2 verification:**
+   - Create test issue with area parameter
+   - Verify label appears on GitHub
+
+3. **Wave 3 verification:**
+   - Invoke `/log lean graph layout bug`
+   - Expect: area:sbs inferred
+
+4. **Wave 4 verification:**
    ```bash
-   cd /Users/eric/GitHub/Side-By-Side-Blueprint/dev/scripts
-   python -m pytest sbs/tests/pytest/test_self_improve.py -v
+   gh issue list --state all --json number,labels | jq '.[] | select(.labels | map(.name) | any(startswith("area:")))'
+   # Expect: All issues have area labels
    ```
-   Expected: 6 tests pass (V1-V5, V7)
-
-3. **After Wave 3:**
-   Manual verification that `/self-improve` completes full cycle (V6)
-
-   Archive entry should contain:
-   - `global_state: null` (cleared after completion)
-   - `tags: [..., "self-improve-cycle"]`
