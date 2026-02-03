@@ -286,7 +286,7 @@ Tags use a **colon-delimited hierarchical format** (`dimension:value`) across 16
 
 #### Rules (v2.0)
 
-46 declarative rules in `tagging/rules.yaml` map entry fields to taxonomy tags:
+50 declarative rules in `tagging/rules.yaml` map entry fields to taxonomy tags:
 
 ```yaml
 rules:
@@ -341,7 +341,7 @@ def analyze(entry, sessions):
 | File | Purpose |
 |------|---------|
 | `tagging/agent_state_taxonomy.yaml` | Canonical taxonomy definition (16 dimensions, ~128 tags) |
-| `tagging/rules.yaml` | 46 declarative rules mapping fields to tags |
+| `tagging/rules.yaml` | 50 declarative rules mapping fields to tags |
 | `tagging/hooks/session_profiler.py` | Session behavioral profiling hook |
 | `tagging/hooks/signal_detector.py` | Anomaly detection hook |
 | `tagging/hooks/outcome_tagger.py` | Outcome classification hook |
