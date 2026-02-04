@@ -264,7 +264,7 @@ Tags are applied automatically via:
 
 #### Agent-State Tag Taxonomy (v2.0)
 
-Tags use a **colon-delimited hierarchical format** (`dimension:value`) across 16 dimensions with ~128 total tags. The taxonomy is defined in `tagging/agent_state_taxonomy.yaml`.
+Tags use a **colon-delimited hierarchical format** (`dimension:value`) across 17 dimensions with ~138 total tags. The archive tags are part of the unified taxonomy at `taxonomy.yaml` (entries with `contexts: [archive]` or `contexts: [both]`).
 
 | Dimension | Example Tags | Purpose |
 |-----------|-------------|---------|
@@ -341,7 +341,7 @@ def analyze(entry, sessions):
 
 | File | Purpose |
 |------|---------|
-| `tagging/agent_state_taxonomy.yaml` | Canonical taxonomy definition (16 dimensions, ~128 tags) |
+| `taxonomy.yaml` | Unified taxonomy (27 dimensions, 243 entries; archive tags filtered by `contexts`) |
 | `tagging/rules.yaml` | 50 declarative rules mapping fields to tags |
 | `tagging/hooks/session_profiler.py` | Session behavioral profiling hook |
 | `tagging/hooks/signal_detector.py` | Anomaly detection hook |
@@ -733,7 +733,7 @@ An 11-dimension, ~105 label taxonomy for structured issue classification.
 
 ### Taxonomy Definition
 
-The canonical taxonomy lives at `dev/storage/labels/taxonomy.yaml`. It defines labels across these dimensions:
+The canonical taxonomy lives at `dev/storage/taxonomy.yaml` (unified v3.0). Issue labels are entries with `contexts: [issues]` or `contexts: [both]`. It defines labels across these dimensions:
 
 | Dimension | Example Labels | Purpose |
 |-----------|---------------|---------|
@@ -790,7 +790,7 @@ The `sbs_issue_create` MCP tool accepts a `labels` parameter for applying taxono
 
 | File | Purpose |
 |------|---------|
-| `dev/storage/labels/taxonomy.yaml` | Canonical taxonomy definition |
+| `dev/storage/taxonomy.yaml` | Unified taxonomy (issues + archive, v3.0) |
 | `dev/scripts/sbs/labels/__init__.py` | Taxonomy loader, validator, color lookup |
 | `dev/scripts/sbs/labels/sync.py` | GitHub label sync (create/update, never delete) |
 | `dev/scripts/sbs/tests/pytest/test_taxonomy.py` | Taxonomy tests (evergreen tier) |
