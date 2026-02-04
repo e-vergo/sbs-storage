@@ -2,10 +2,10 @@
   "session_id": "97c938bb-b7d3-4272-9915-6d3dd0dda1ff",
   "project_path": "",
   "started_at": "2026-02-04T08:34:23.600Z",
-  "ended_at": "2026-02-04T08:38:31.595Z",
-  "message_count": 64,
-  "user_messages": 24,
-  "assistant_messages": 40,
+  "ended_at": "2026-02-04T08:39:26.630Z",
+  "message_count": 77,
+  "user_messages": 30,
+  "assistant_messages": 47,
   "tool_calls": [
     {
       "tool_name": "mcp__sbs-lsp__sbs_archive_state",
@@ -354,34 +354,165 @@
         "skill": "self-improve",
         "to_phase": "logging"
       },
+      "result_content": "{\"success\":true,\"error\":null,\"from_phase\":\"dialogue\",\"to_phase\":\"logging\",\"archive_entry_id\":\"1770194315\"}",
+      "result_type": "text",
+      "tool_use_id": "toolu_01DzYCvr3wszywCfoEVpsGwo"
+    },
+    {
+      "tool_name": "mcp__sbs-lsp__sbs_issue_log",
+      "timestamp": "2026-02-04T08:38:53.816Z",
+      "duration_ms": null,
+      "success": true,
+      "error": null,
+      "input_summary": "{\"title\": \"V2 auto-tags compute at session level, yielding uniform per-entry tags\", \"body\": \"## Problem\\n\\nThe auto-tagger computes tags from session-level metadata (token counts, tool distribution, m...",
+      "input_full": {
+        "title": "V2 auto-tags compute at session level, yielding uniform per-entry tags",
+        "body": "## Problem\n\nThe auto-tagger computes tags from session-level metadata (token counts, tool distribution, model info) which is constant across all entries within a single session. Result: 197 entries in the current epoch carry the same ~20 v2 tags. Tags like `signal:retry-loop` and `signal:consecutive-bash-failures` appear on clean execution entries because they describe the session aggregate, not the individual entry.\n\nThis makes per-entry analysis impossible \u2014 tags can't differentiate normal phases from problem phases within a session.\n\n## Evidence\n\n- Entry 1770192056 retrospective: \"The auto-tagger may be over-sensitive to normal exploration patterns\"\n- Tag effectiveness analysis: All v2 tags have 0.0 signal score (no correlation with gate failures, backward transitions, or error notes)\n- 182/197 v2-era entries carry `signal:consecutive-bash-failures`, `signal:same-command-retry`, `outcome:had-retries` uniformly\n\n## Proposed Fix\n\nEither:\n1. **Entry-aware tagging:** Compute tags from the delta since last entry (new tool calls, new errors, phase transitions)\n2. **Tag namespace split:** Separate `session:*` tags (computed once per session, inherited by all entries) from `entry:*` tags (computed per-entry from phase/transition/notes context)\n\nOption 2 is cleaner and backward-compatible. Related to DuckDB migration but can be addressed independently.\n\n## Success Criteria\n\nAfter fix, entries within the same session have different tag sets based on their phase/transition content.",
+        "labels": [
+          "origin:self-improve",
+          "bug:data",
+          "area:devtools:archive",
+          "pillar:system-engineering",
+          "impact:data-quality",
+          "friction:signal-noise"
+        ]
+      },
+      "result_content": "{\"success\":true,\"number\":160,\"url\":\"https://github.com/e-vergo/Side-By-Side-Blueprint/issues/160\",\"context_attached\":true,\"error\":null}",
+      "result_type": "text",
+      "tool_use_id": "toolu_01PKFMD36zSLpoCqGsSi6VTg"
+    },
+    {
+      "tool_name": "mcp__sbs-lsp__sbs_issue_log",
+      "timestamp": "2026-02-04T08:38:59.655Z",
+      "duration_ms": null,
+      "success": true,
+      "error": null,
+      "input_summary": "{\"title\": \"Add --repo flag guidance for gh CLI in agent docs\", \"body\": \"## Problem\\n\\nWhen agent cwd is inside showcase project directories (GCR, PNT), `gh` CLI infers the wrong repository from git re...",
+      "input_full": {
+        "title": "Add --repo flag guidance for gh CLI in agent docs",
+        "body": "## Problem\n\nWhen agent cwd is inside showcase project directories (GCR, PNT), `gh` CLI infers the wrong repository from git remote. This has caused agents to post comments/actions to the wrong repo (e.g., commenting on PNT instead of SBS).\n\n## Evidence\n\n- Crush retrospective (1770193776): \"An agent used `gh issue comment` without `--repo` flag, posting to PNT instead of SBS. This is a recurring pattern.\"\n- Noted as occurring \"at least twice\"\n\n## Proposed Fix\n\nAdd to `sbs-developer.md` under a \"CLI Gotchas\" or \"Common Mistakes\" section:\n\n```\n### gh CLI Repository Inference\n\nWhen working inside showcase project directories (GCR, PNT), `gh` infers the wrong repository.\nAlways use `--repo e-vergo/Side-By-Side-Blueprint` on all `gh` commands:\n\n    gh issue comment 123 --repo e-vergo/Side-By-Side-Blueprint --body \"...\"\n    gh pr create --repo e-vergo/Side-By-Side-Blueprint ...\n```\n\n## Success Criteria\n\nNo future instances of gh commands targeting wrong repository.",
+        "labels": [
+          "origin:self-improve",
+          "bug:functional",
+          "area:devtools:skills",
+          "pillar:claude-execution",
+          "impact:dx",
+          "friction:alignment-gap"
+        ]
+      },
+      "result_content": "{\"success\":true,\"number\":161,\"url\":\"https://github.com/e-vergo/Side-By-Side-Blueprint/issues/161\",\"context_attached\":true,\"error\":null}",
+      "result_type": "text",
+      "tool_use_id": "toolu_01MC7FMy8oGFzLC58KeFsUzY"
+    },
+    {
+      "tool_name": "mcp__sbs-lsp__sbs_issue_log",
+      "timestamp": "2026-02-04T08:39:06.927Z",
+      "duration_ms": null,
+      "success": true,
+      "error": null,
+      "input_summary": "{\"title\": \"Agent testing anti-pattern: simulation over integration\", \"body\": \"## Problem\\n\\nAgents write tests that mirror their understanding of code logic rather than exercising actual code paths. T...",
+      "input_full": {
+        "title": "Agent testing anti-pattern: simulation over integration",
+        "body": "## Problem\n\nAgents write tests that mirror their understanding of code logic rather than exercising actual code paths. The tests simulate what a function does internally rather than calling the function and checking its outputs. This means tests pass but provide weaker coverage guarantees than they appear to.\n\n## Evidence\n\n- Crush retrospective (1770193776): \"#142 agent wrote tests for `sbs_improvement_capture` that simulate the MCP tool's logic inline rather than calling the actual function. These verify internal logic but may not catch integration issues.\"\n- Pattern: agent reads source code, extracts the algorithm, rewrites it as test assertions. If the source code has a bug, the test mirrors the bug.\n\n## Proposed Fix\n\nAdd testing guidance to `sbs-developer.md`:\n\n```\n### Testing Standards\n\n- Tests MUST import and call actual functions, not simulate their behavior\n- Integration tests > unit tests for MCP tools and CLI commands\n- If a function can't be imported directly (e.g., MCP tool handler), test through the CLI or subprocess\n- Simulation tests (reimplementing logic to verify understanding) are explicitly prohibited\n```\n\n## Success Criteria\n\nFuture test-writing agents produce tests that import from source modules and exercise actual code paths.",
+        "labels": [
+          "origin:self-improve",
+          "feature:enhancement",
+          "area:devtools:skills",
+          "pillar:claude-execution",
+          "impact:dx",
+          "friction:tooling-gap"
+        ]
+      },
+      "result_content": "{\"success\":true,\"number\":162,\"url\":\"https://github.com/e-vergo/Side-By-Side-Blueprint/issues/162\",\"context_attached\":true,\"error\":null}",
+      "result_type": "text",
+      "tool_use_id": "toolu_019SpoMRa9SueJhGegtyu8iq"
+    },
+    {
+      "tool_name": "mcp__sbs-lsp__sbs_issue_log",
+      "timestamp": "2026-02-04T08:39:13.478Z",
+      "duration_ms": null,
+      "success": true,
+      "error": null,
+      "input_summary": "{\"title\": \"Extend sbs_run_tests to support MCP repo venv\", \"body\": \"## Problem\\n\\nThe MCP repo (forks/sbs-lsp-mcp) has its own Python virtual environment at `.venv/bin/pytest`. The `sbs_run_tests` MCP...",
+      "input_full": {
+        "title": "Extend sbs_run_tests to support MCP repo venv",
+        "body": "## Problem\n\nThe MCP repo (forks/sbs-lsp-mcp) has its own Python virtual environment at `.venv/bin/pytest`. The `sbs_run_tests` MCP tool only runs tests in `dev/scripts/sbs/tests/pytest`. Agents working on MCP tools must manually discover and invoke the venv-specific pytest, creating friction.\n\n## Evidence\n\n- Improvement capture 1770193719: \"MCP repo tests require project-specific venv to run (.venv/bin/pytest) but the sbs_run_tests MCP tool only runs tests in dev/scripts. No standard way to run MCP repo tests from the orchestrator.\"\n- Crush session agents had to manually find the venv path\n\n## Proposed Fix\n\nOption A (preferred): Add a `repo` parameter to `sbs_run_tests` that accepts values like `mcp` or `sbs-lsp-mcp`, which routes to the appropriate venv and test directory.\n\nOption B (interim): Document the manual testing path in sbs-developer.md:\n```\nMCP repo tests: cd forks/sbs-lsp-mcp && .venv/bin/pytest tests/ -v\n```\n\n## Success Criteria\n\nAgents can run MCP repo tests through the standard `sbs_run_tests` tool or have clear documented fallback.",
+        "labels": [
+          "origin:self-improve",
+          "feature:enhancement",
+          "area:devtools:mcp",
+          "pillar:system-engineering",
+          "impact:dx",
+          "friction:tooling-gap"
+        ]
+      },
+      "result_content": "{\"success\":true,\"number\":163,\"url\":\"https://github.com/e-vergo/Side-By-Side-Blueprint/issues/163\",\"context_attached\":true,\"error\":null}",
+      "result_type": "text",
+      "tool_use_id": "toolu_01Pz7YsUFbyHN7MU58tJSTC5"
+    },
+    {
+      "tool_name": "mcp__sbs-lsp__sbs_issue_log",
+      "timestamp": "2026-02-04T08:39:21.876Z",
+      "duration_ms": null,
+      "success": true,
+      "error": null,
+      "input_summary": "{\"title\": \"Establish guidance verification protocol for self-improve cycles\", \"body\": \"## Problem\\n\\n14+ guidance additions have accumulated across cycles 2-4 without verification that agents actually...",
+      "input_full": {
+        "title": "Establish guidance verification protocol for self-improve cycles",
+        "body": "## Problem\n\n14+ guidance additions have accumulated across cycles 2-4 without verification that agents actually follow them. The previous L2 summary (1770188864) identified this as \"guidance verification debt\" \u2014 a form of process debt where adding words to SKILL.md doesn't guarantee behavioral change.\n\nCycle 4 noted: \"Adding words to a SKILL.md doesn't guarantee agents read and follow them \u2014 the same failure mode that prompted #136.\"\n\n## Evidence\n\n- L2 summary 1770188864: \"14+ unverified guidance changes. Only 2 have been verified.\"\n- Cycle 4 recommendation #1: \"Verify guidance additions\" \u2014 still unaddressed\n- The crush session added 8 more guidance/code changes, further growing the debt\n\n## Proposed Fix\n\nAdd a \"Verification Sampling\" step to the self-improve discovery phase:\n\n1. Each cycle, select 2-3 guidance additions from prior cycles\n2. Search session JSONL files or archive entries for evidence that agents demonstrated the prescribed behavior\n3. Record verification status in the L2 summary\n4. If a guidance addition shows no evidence of adoption after 2 cycles, escalate: either the guidance is ineffective (remove/revise) or the opportunity hasn't arisen (defer)\n\nUpdate SKILL.md for `/self-improve` to include this as a mandatory discovery substep.\n\n## Success Criteria\n\nL2 summaries include a verification section showing adoption status of prior guidance additions.",
+        "labels": [
+          "origin:self-improve",
+          "feature:enhancement",
+          "area:devtools:skills",
+          "pillar:alignment-patterns",
+          "impact:alignment",
+          "friction:missing-data"
+        ]
+      },
+      "result_content": "{\"success\":true,\"number\":164,\"url\":\"https://github.com/e-vergo/Side-By-Side-Blueprint/issues/164\",\"context_attached\":true,\"error\":null}",
+      "result_type": "text",
+      "tool_use_id": "toolu_01KFJsb2zx26DSVjSecz8toT"
+    },
+    {
+      "tool_name": "mcp__sbs-lsp__sbs_skill_transition",
+      "timestamp": "2026-02-04T08:39:26.630Z",
+      "duration_ms": null,
+      "success": true,
+      "error": null,
+      "input_summary": "{\"skill\": \"self-improve\", \"to_phase\": \"archive\"}",
+      "input_full": {
+        "skill": "self-improve",
+        "to_phase": "archive"
+      },
       "result_content": null,
       "result_type": null,
-      "tool_use_id": "toolu_01DzYCvr3wszywCfoEVpsGwo"
+      "tool_use_id": "toolu_01KmzMAAm2FHKHfsCm5rk8Qv"
     }
   ],
   "tools_used": [
     "mcp__sbs-lsp__sbs_user_patterns",
-    "mcp__sbs-lsp__sbs_comparative_analysis",
     "mcp__sbs-lsp__sbs_system_health",
-    "mcp__sbs-lsp__sbs_interruption_analysis",
     "AskUserQuestion",
-    "mcp__sbs-lsp__sbs_gate_failures",
-    "mcp__sbs-lsp__sbs_successful_sessions",
     "Read",
+    "mcp__sbs-lsp__sbs_skill_stats",
+    "mcp__sbs-lsp__sbs_comparative_analysis",
+    "mcp__sbs-lsp__sbs_tag_effectiveness",
+    "mcp__sbs-lsp__sbs_issue_log",
+    "mcp__sbs-lsp__sbs_skill_transition",
+    "mcp__sbs-lsp__sbs_successful_sessions",
+    "mcp__sbs-lsp__sbs_skill_start",
     "mcp__sbs-lsp__sbs_phase_transition_health",
     "mcp__sbs-lsp__sbs_entries_since_self_improve",
-    "mcp__sbs-lsp__sbs_search_entries",
-    "mcp__sbs-lsp__sbs_archive_state",
-    "mcp__sbs-lsp__sbs_skill_transition",
-    "mcp__sbs-lsp__sbs_tag_effectiveness",
-    "mcp__sbs-lsp__sbs_skill_stats",
+    "mcp__sbs-lsp__sbs_interruption_analysis",
     "Glob",
-    "mcp__sbs-lsp__sbs_skill_start"
+    "mcp__sbs-lsp__sbs_archive_state",
+    "mcp__sbs-lsp__sbs_gate_failures",
+    "mcp__sbs-lsp__sbs_search_entries"
   ],
   "files_read": [
-    "/Users/eric/GitHub/Side-By-Side-Blueprint/dev/storage/archive/retrospectives/1770192056.md",
+    "/Users/eric/GitHub/Side-By-Side-Blueprint/dev/storage/archive/summaries/1770188864.md",
     "/Users/eric/GitHub/Side-By-Side-Blueprint/dev/storage/archive/retrospectives/1770193776.md",
-    "/Users/eric/GitHub/Side-By-Side-Blueprint/dev/storage/archive/summaries/1770188864.md"
+    "/Users/eric/GitHub/Side-By-Side-Blueprint/dev/storage/archive/retrospectives/1770192056.md"
   ],
   "files_written": [],
   "files_edited": [],
@@ -392,13 +523,13 @@
   "first_prompt": null,
   "session_summary": null,
   "model_versions": [
+    "signature:EvMCCkYICxgCKkDONR1s...",
+    "signature:Eq8DCkYICxgCKkCdNbim...",
+    "signature:EqMCCkYICxgCKkD4ePqn...",
+    "signature:EslOCkYICxgCKkC0zZYI...",
     "signature:EvUBCkYICxgCKkBZ/SNU...",
     "signature:Er0OCkYICxgCKkCu4xOj...",
-    "signature:Eq8DCkYICxgCKkCdNbim...",
-    "signature:EslOCkYICxgCKkC0zZYI...",
-    "signature:EvMCCkYICxgCKkDONR1s...",
-    "claude-opus-4-5-20251101",
-    "signature:EqMCCkYICxgCKkD4ePqn..."
+    "claude-opus-4-5-20251101"
   ],
   "thinking_blocks": [
     {
@@ -433,10 +564,10 @@
     }
   ],
   "message_usage": {
-    "input_tokens": 44,
-    "output_tokens": 256,
-    "cache_creation_input_tokens": 245964,
-    "cache_read_input_tokens": 2391775
+    "input_tokens": 51,
+    "output_tokens": 453,
+    "cache_creation_input_tokens": 252477,
+    "cache_read_input_tokens": 2985481
   },
   "parent_uuid_chain": [
     "857fd860-10db-438d-8d61-933f48cae7f1",
@@ -501,7 +632,20 @@
     "bd07e2db-c764-4843-a295-762f0a1e769c",
     "cc6eaa8c-224a-44a1-aa73-c189c7efa98a",
     "e65e3ef7-ef03-4711-8ba0-3a8c5081f5c6",
-    "9b72e43d-e104-48c3-a4b9-ab13825e4689"
+    "9b72e43d-e104-48c3-a4b9-ab13825e4689",
+    "07c460bb-26b6-4eb0-ac05-dd759a4c6b7e",
+    "f8dbd0a5-30d9-46d5-bfe2-ab6a47edfebb",
+    "1cca85c4-0429-45b5-805a-95a509a98e36",
+    "6e406bec-690f-422a-a07a-4dd9cee688b4",
+    "8f3a6555-158e-449e-8b20-01171c7e771c",
+    "e679cfd2-398a-4eec-8b2d-7282c3bc9508",
+    "e0f6bb8a-d6f0-4c8f-a2c9-f38c0da8047a",
+    "2decfe04-ed1d-4d8e-80dc-61f070cfdba1",
+    "c2b9eac8-a274-484e-a59e-f1387c990437",
+    "289f90eb-1ef2-447b-8528-0187eee10ed9",
+    "ceebb243-eeea-49e9-8e8e-0c89180c3bf4",
+    "2554e99e-a705-4f6d-8480-e4666f634851",
+    "55353f7c-ba63-47f9-bde2-83a536c8c054"
   ],
   "stop_reasons": []
 }
