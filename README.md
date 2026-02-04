@@ -47,6 +47,7 @@ dev/storage/  (local archive)
 |   +-- loc_trends.png
 |   +-- timing_trends.png
 |   +-- activity_heatmap.png
+|   +-- archive_timing_trends.png
 +-- chat_summaries/         # Session summaries
 |   +-- {entry_id}.md
 +-- claude_data/            # Extracted ~/.claude data
@@ -363,6 +364,26 @@ After upload, all repos are in clean state:
 - All submodules committed and pushed
 - No uncommitted changes anywhere
 
+### Archive Upload Timing
+
+Each `sbs archive upload` now instruments every step and records timings in the `archive_timings` field of the archive entry. Phases tracked:
+- `extraction` -- Claude data extraction from ~/.claude
+- `quality_scores` -- Quality ledger loading and optional validation
+- `repo_commits` -- Git SHA collection across all repos
+- `tagging` -- Auto-tagging engine evaluation
+- `gate_validation` -- Finalization gate checks (when applicable)
+- `index_save` -- Archive index serialization
+- `icloud_sync_launch` -- Async iCloud sync launch
+- `porcelain` -- Git commit and parallel push
+
+### Async iCloud Sync
+
+iCloud sync now runs in a background daemon thread. The archive upload returns immediately after launching the sync -- it does not block on iCloud file copies. This reduces archive upload wall-clock time by 30-60 seconds.
+
+### Parallel Git Pushes
+
+Git pushes during `ensure_porcelain()` now run in parallel (up to 4 concurrent pushes). Commits are still sequential (required for submodule pointer correctness). Main repo is always pushed last.
+
 ---
 
 ## Compliance System
@@ -419,13 +440,14 @@ See `scripts/VISUAL_COMPLIANCE.md` for detailed compliance criteria and validati
 
 ## Visualizations
 
-Charts generated from `unified_ledger.json`:
+Charts generated from archive data:
 
-| Chart | Description |
-|-------|-------------|
-| `loc_trends.png` | Lines of code by language over last 20 builds |
-| `timing_trends.png` | Build phase durations (stacked area) |
-| `activity_heatmap.png` | Files changed per repo per build |
+| Chart | Source | Description |
+|-------|--------|-------------|
+| `loc_trends.png` | `unified_ledger.json` | Lines of code by language over last 20 builds |
+| `timing_trends.png` | `unified_ledger.json` | Build phase durations (stacked area) |
+| `activity_heatmap.png` | `unified_ledger.json` | Files changed per repo per build |
+| `archive_timing_trends.png` | `archive_index.json` | Archive upload phase timings (stacked bar) |
 
 Regenerate manually: `sbs archive charts`
 
@@ -441,6 +463,18 @@ The archive system integrates with `build.py`:
 4. Charts regenerated
 5. Entry synced to iCloud
 6. Entry saved to `archive_index.json`
+
+### Build Flags
+
+| Flag | Description |
+|------|-------------|
+| `--dry-run` | Show what would be done without executing |
+| `--skip-cache` | Bypass toolchain build cache |
+| `--verbose` | Enable debug output |
+| `--capture` | Capture screenshots after build |
+| `--force-lake` | Force Lake builds even if Lean sources unchanged |
+
+**Lean Source Skip:** By default, the build script detects whether `.lean` files have changed since the last successful build. If unchanged, Lake build phases (toolchain, project, blueprint, mathlib cache, manifests) are skipped entirely. Use `--force-lake` to override this and force a full rebuild.
 
 ---
 
