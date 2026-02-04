@@ -1,1 +1,51 @@
-[]
+[
+  {
+    "iteration": 1,
+    "timestamp": "2026-02-04T13:39:00Z",
+    "pass_rate_before": 0.929,
+    "pass_rate_after": 0.960,
+    "net_improvement": 0.031,
+    "fixes_applied": [
+      {
+        "file": "toolchain/Runway/Runway/Render.lean",
+        "line": 417,
+        "change": "Changed node.url to node.fullUrl in renderMessages",
+        "resolved": ["dashboard:messages_panel"],
+        "rationale": "Messages panel links were broken due to using fragment-only URLs instead of full paths"
+      },
+      {
+        "file": "toolchain/SBS-Test/runway/src/paper.tex",
+        "change": "Added math content ($\\N$, $\\Z$, formulas) and \\paperstatement hooks",
+        "resolved": ["paper_tex:math_rendered"],
+        "rationale": "Paper had no actual math content to render - added formulas throughout document"
+      }
+    ],
+    "unfixable_failures": [
+      {
+        "criterion": "paper_tex:leanStatement_renders",
+        "reason": "\\paperstatement hook doesn't inject Lean code blocks from dressed artifacts",
+        "issue": "#187",
+        "category": "feature_gap"
+      },
+      {
+        "criterion": "paper_tex:leanProof_renders",
+        "reason": "\\paperfull proof_content elements render empty - no proof injection from dressed artifacts",
+        "issue": "#188",
+        "category": "feature_gap"
+      },
+      {
+        "criterion": "paper_tex:sideBySide_renders",
+        "reason": "Paper uses single-column layout - no .sbs-lean-column generated for two-column grid",
+        "issue": "#189",
+        "category": "feature_gap"
+      },
+      {
+        "criterion": "chapter:tactic_state_toggle",
+        "reason": "Chapter source code uses term-mode proofs, not tactic-mode - no tactic blocks to toggle",
+        "issue": null,
+        "category": "content_limitation"
+      }
+    ],
+    "notes": "Iteration 1 improved pass rate from 92.9% to 96.0% by fixing two criteria. Remaining 4 failures are pipeline feature gaps (3) and content limitations (1), not fixable within convergence loop scope. Paper generation needs implementation work to support \\paperstatement and \\paperfull hooks with Lean code/proof injection."
+  }
+]
