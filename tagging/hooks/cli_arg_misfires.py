@@ -7,7 +7,12 @@ This hook analyzes tool calls for patterns indicating incorrect CLI usage:
 - High retry count on same tool
 
 This is a stub - full implementation is future work.
+
+All tags produced by this hook are session-scoped (aggregate over tool calls).
 """
+
+# Scope declaration: all tags from this hook are session-level aggregates.
+TAG_SCOPE = "session"
 
 from typing import TYPE_CHECKING
 

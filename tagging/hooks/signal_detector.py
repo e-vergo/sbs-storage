@@ -1,19 +1,24 @@
 """Signal detector hook -- identifies anomalies and red flags in sessions.
 
 Produces tags in the ``signal:`` namespace:
-- consecutive-bash-failures: 3+ bash commands failed in a row
-- same-command-retry: Same command (tool+file) run 3+ times
-- cli-misfire: CLI argument/option errors detected
-- max-tokens-hit: Model hit max token limit
-- user-correction: Entry notes suggest a correction/redo
-- retry-loop: Same tool+file repeated 3+ times in sequence
-- high-churn: Extremely long session suggesting churn
-- context-compaction: Session continuation detected
-- sync-error: Archive sync failed
-- stale-metrics: Quality scores contain stale data
+- consecutive-bash-failures: 3+ bash commands failed in a row  (session)
+- same-command-retry: Same command (tool+file) run 3+ times    (session)
+- cli-misfire: CLI argument/option errors detected             (session)
+- max-tokens-hit: Model hit max token limit                    (session)
+- user-correction: Entry notes suggest a correction/redo       (entry)
+- retry-loop: Same tool+file repeated 3+ times in sequence     (session)
+- high-churn: Extremely long session suggesting churn           (session)
+- context-compaction: Session continuation detected             (session)
+- sync-error: Archive sync failed                              (entry)
+- stale-metrics: Quality scores contain stale data             (entry)
+
+This hook produces a mix of entry-scoped and session-scoped tags.
 """
 
 from __future__ import annotations
+
+# Scope declaration: this hook produces both entry and session tags.
+TAG_SCOPE = "both"
 
 import re
 from typing import TYPE_CHECKING

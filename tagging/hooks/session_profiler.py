@@ -6,9 +6,15 @@ Produces tags in these namespaces:
 - thinking: reasoning trace characteristics
 - tool:     tool usage patterns and dominant tools
 - model:    model version information
+
+All tags produced by this hook are session-scoped (constant across all
+entries in the same session).
 """
 
 from __future__ import annotations
+
+# Scope declaration: all tags from this hook are session-level aggregates.
+TAG_SCOPE = "session"
 
 from collections import Counter
 from typing import TYPE_CHECKING

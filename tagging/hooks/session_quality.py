@@ -7,7 +7,12 @@ This hook evaluates session characteristics to identify patterns:
 - Heavy editing sessions
 
 This is a stub - full implementation is future work.
+
+All tags produced by this hook are session-scoped (aggregate over tool calls).
 """
+
+# Scope declaration: all tags from this hook are session-level aggregates.
+TAG_SCOPE = "session"
 
 from typing import TYPE_CHECKING
 

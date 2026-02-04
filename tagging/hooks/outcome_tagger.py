@@ -8,15 +8,22 @@ Declarative rules already handle:
 - outcome:gate-pass / outcome:gate-fail
 
 This hook adds:
-- outcome:clean-execution -- zero tool failures, no signal-worthy anomalies
-- outcome:had-retries -- same file edited 3+ times across sessions
-- outcome:task-completed -- terminal state transition for a task
-- outcome:task-incomplete -- mid-task entry (no terminal transition)
-- outcome:pr-created -- PR references present
-- outcome:quality-improved / quality-regressed / quality-stable
+- outcome:clean-execution -- zero tool failures, no anomalies    (session)
+- outcome:had-retries -- same file edited 3+ times               (session)
+- outcome:task-completed -- terminal state transition             (entry)
+- outcome:task-incomplete -- mid-task entry, no terminal transition (entry)
+- outcome:pr-created -- PR references present                    (entry)
+- outcome:quality-improved / quality-regressed / quality-stable  (entry)
+- outcome:scope-expanded -- plan files edited in execution       (both)
+- outcome:build-after-fix-failed -- build failed after edits     (both)
+
+This hook produces a mix of entry-scoped and session-scoped tags.
 """
 
 from __future__ import annotations
+
+# Scope declaration: this hook produces both entry and session tags.
+TAG_SCOPE = "both"
 
 from collections import Counter
 from typing import TYPE_CHECKING

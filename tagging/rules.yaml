@@ -1,5 +1,10 @@
 # Auto-tagging rules for archive entries (colon-delimited agent-state taxonomy)
 # Rules are evaluated in order; all matching rules apply their tags.
+#
+# scope field on each rule:
+#   entry   -- rule evaluates entry-specific context fields
+#   session -- rule evaluates session-constant context fields
+#   both    -- rule evaluates fields that may come from either context
 
 version: "2.0"
 
@@ -9,54 +14,63 @@ rules:
   # ==========================================================================
 
   - name: phase-alignment
+    scope: entry
     condition:
       field: substate
       equals: "alignment"
     tags: ["phase:alignment"]
 
   - name: phase-planning
+    scope: entry
     condition:
       field: substate
       equals: "planning"
     tags: ["phase:planning"]
 
   - name: phase-execution
+    scope: entry
     condition:
       field: substate
       equals: "execution"
     tags: ["phase:execution"]
 
   - name: phase-finalization
+    scope: entry
     condition:
       field: substate
       equals: "finalization"
     tags: ["phase:finalization"]
 
   - name: phase-readme-wave
+    scope: entry
     condition:
       field: substate
       equals: "readme-wave"
     tags: ["phase:readme-wave"]
 
   - name: phase-oracle-regen
+    scope: entry
     condition:
       field: substate
       equals: "oracle-regen"
     tags: ["phase:oracle-regen"]
 
   - name: phase-porcelain
+    scope: entry
     condition:
       field: substate
       equals: "porcelain"
     tags: ["phase:porcelain"]
 
   - name: phase-archive-upload
+    scope: entry
     condition:
       field: substate
       equals: "archive-upload"
     tags: ["phase:archive-upload"]
 
   - name: phase-idle
+    scope: entry
     condition:
       field: skill
       is_empty: true
@@ -67,30 +81,35 @@ rules:
   # ==========================================================================
 
   - name: transition-phase-start
+    scope: entry
     condition:
       field: state_transition
       equals: "phase_start"
     tags: ["transition:phase-start"]
 
   - name: transition-phase-end
+    scope: entry
     condition:
       field: state_transition
       equals: "phase_end"
     tags: ["transition:phase-end"]
 
   - name: transition-handoff
+    scope: entry
     condition:
       field: state_transition
       equals: "handoff"
     tags: ["transition:handoff"]
 
   - name: transition-phase-fail
+    scope: entry
     condition:
       field: state_transition
       equals: "phase_fail"
     tags: ["transition:phase-fail"]
 
   - name: transition-epoch-close
+    scope: entry
     condition:
       field: has_epoch_summary
       equals: true
@@ -101,30 +120,35 @@ rules:
   # ==========================================================================
 
   - name: skill-task
+    scope: both
     condition:
       field: skill
       equals: "task"
     tags: ["skill:task"]
 
   - name: skill-self-improve
+    scope: both
     condition:
       field: skill
       equals: "self-improve"
     tags: ["skill:self-improve"]
 
   - name: skill-update-and-archive
+    scope: both
     condition:
       field: skill
       equals: "update-and-archive"
     tags: ["skill:update-and-archive"]
 
   - name: skill-log
+    scope: both
     condition:
       field: skill
       equals: "log"
     tags: ["skill:log"]
 
   - name: skill-none
+    scope: both
     condition:
       field: skill
       is_empty: true
@@ -135,18 +159,21 @@ rules:
   # ==========================================================================
 
   - name: trigger-build
+    scope: both
     condition:
       field: trigger
       equals: "build"
     tags: ["trigger:build"]
 
   - name: trigger-skill
+    scope: both
     condition:
       field: trigger
       equals: "skill"
     tags: ["trigger:skill"]
 
   - name: trigger-manual
+    scope: both
     condition:
       field: trigger
       equals: "manual"
@@ -157,48 +184,56 @@ rules:
   # ==========================================================================
 
   - name: scope-cross-repo
+    scope: both
     condition:
       field: repos_changed_count
       greater_than: 2
     tags: ["scope:cross-repo"]
 
   - name: scope-multi-repo
+    scope: both
     condition:
       field: repos_changed_count
       equals: 2
     tags: ["scope:multi-repo"]
 
   - name: scope-css-js
+    scope: both
     condition:
       field: files_modified
       matches_any: ["*.css", "*.js"]
     tags: ["scope:css-js"]
 
   - name: scope-lean
+    scope: both
     condition:
       field: files_modified
       matches_any: ["*.lean"]
     tags: ["scope:lean"]
 
   - name: scope-python
+    scope: both
     condition:
       field: files_modified
       matches_any: ["*.py"]
     tags: ["scope:python"]
 
   - name: scope-config
+    scope: both
     condition:
       field: files_modified
       matches_any: ["*.yaml", "*.json", "*.toml"]
     tags: ["scope:config"]
 
   - name: scope-wide
+    scope: both
     condition:
       field: files_modified_count
       greater_than: 50
     tags: ["scope:wide"]
 
   - name: scope-narrow
+    scope: both
     condition:
       field: files_modified_count
       less_than: 5
@@ -209,60 +244,70 @@ rules:
   # ==========================================================================
 
   - name: repo-dress
+    scope: both
     condition:
       field: files_modified
       matches_any: ["*/Dress/*"]
     tags: ["repo:dress"]
 
   - name: repo-runway
+    scope: both
     condition:
       field: files_modified
       matches_any: ["*/Runway/*"]
     tags: ["repo:runway"]
 
   - name: repo-sbs-test
+    scope: both
     condition:
       field: files_modified
       matches_any: ["*/SBS-Test/*"]
     tags: ["repo:sbs-test"]
 
   - name: repo-gcr
+    scope: both
     condition:
       field: files_modified
       matches_any: ["*/General_Crystallographic_Restriction/*"]
     tags: ["repo:gcr"]
 
   - name: repo-pnt
+    scope: both
     condition:
       field: files_modified
       matches_any: ["*/PrimeNumberTheoremAnd/*"]
     tags: ["repo:pnt"]
 
   - name: repo-verso
+    scope: both
     condition:
       field: files_modified
       matches_any: ["*/verso/*"]
     tags: ["repo:verso"]
 
   - name: repo-subverso
+    scope: both
     condition:
       field: files_modified
       matches_any: ["*/subverso/*"]
     tags: ["repo:subverso"]
 
   - name: repo-lean-architect
+    scope: both
     condition:
       field: files_modified
       matches_any: ["*/LeanArchitect/*"]
     tags: ["repo:lean-architect"]
 
   - name: repo-sbs-lsp-mcp
+    scope: both
     condition:
       field: files_modified
       matches_any: ["*/sbs-lsp-mcp/*"]
     tags: ["repo:sbs-lsp-mcp"]
 
   - name: repo-dress-blueprint-action
+    scope: both
     condition:
       field: files_modified
       matches_any: ["*/dress-blueprint-action/*"]
@@ -273,18 +318,21 @@ rules:
   # ==========================================================================
 
   - name: linkage-has-issue
+    scope: entry
     condition:
       field: issue_refs
       is_empty: false
     tags: ["linkage:has-issue"]
 
   - name: linkage-has-pr
+    scope: entry
     condition:
       field: pr_refs
       is_empty: false
     tags: ["linkage:has-pr"]
 
   - name: linkage-has-plan
+    scope: session
     condition:
       field: plan_count
       greater_than: 0
@@ -295,24 +343,28 @@ rules:
   # ==========================================================================
 
   - name: outcome-build-success
+    scope: both
     condition:
       field: build_success
       equals: true
     tags: ["outcome:build-success"]
 
   - name: outcome-build-fail
+    scope: both
     condition:
       field: build_success
       equals: false
     tags: ["outcome:build-fail"]
 
   - name: outcome-gate-pass
+    scope: entry
     condition:
       field: gate_passed
       equals: true
     tags: ["outcome:gate-pass"]
 
   - name: outcome-gate-fail
+    scope: entry
     condition:
       field: gate_passed
       equals: false
@@ -326,11 +378,14 @@ hooks:
   - name: session-profiler
     module: session_profiler
     function: profile_session
+    scope: session
 
   - name: signal-detector
     module: signal_detector
     function: detect_signals
+    scope: both
 
   - name: outcome-tagger
     module: outcome_tagger
     function: tag_outcomes
+    scope: both
