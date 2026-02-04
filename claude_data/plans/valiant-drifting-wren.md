@@ -1,115 +1,119 @@
-# Sidebar Overhaul - Issue #104
+# Update SLS Planning + Extension Docs
 
-## Scope
-Remove standalone chapter panel, inline chapters under "Blueprint" toggle in sidebar, reduce width, bump font size. Touches 2 submodule repos: `dress-blueprint-action` (CSS/JS) and `Runway` (Lean template).
-
----
-
-## Wave 1: Template Changes (Runway/Theme.lean)
-
-**File:** `toolchain/Runway/Runway/Theme.lean`
-
-### 1a. Remove `renderChapterPanel` (lines 84-101)
-Delete entirely -- no longer needed.
-
-### 1b. Modify `renderSidebar` (lines 103-200)
-Replace the TeX Blueprint `mkDocItem` call (line 156) with a new inline toggle structure:
-
-```html
-<li class="sidebar-blueprint-group">
-  <span class="sidebar-item sidebar-blueprint-toggle">
-    <span class="sidebar-chevron">&#x25B8;</span> Blueprint
-  </span>
-  <ul class="sidebar-chapter-list">
-    <li><a href="ch1.html" class="sidebar-chapter-item active">Ch 1: Title</a></li>
-    ...
-  </ul>
-</li>
-```
-
-New Lean helper `renderBlueprintToggle` takes `chapters`, `currentSlug`, `toRoot`, `available`. When `available == false`, renders disabled span (no toggle, no chapters).
-
-### 1c. Modify `primaryTemplateWithSidebar` (lines 298-380)
-- Remove `showChapterPanel` / `chapterPanel` computation (lines 310-313)
-- Remove conditional `wrapperClass` (line 328) -- always `"wrapper"`
-- Remove `chapterPanel` from template output (line 368)
-
-### 1d. Add `data-blueprint-page` attribute to `<body>`
-Use existing `isBlueprintPage` to set `data-blueprint-page="true"` on body tag. Gives JS the signal to auto-expand chapters.
+Incorporate the "UI as structural enforcement" insight into both documents. The extension isn't just a frontend -- it transforms SLS principles from conventions-to-follow into properties-of-the-interface.
 
 ---
 
-## Wave 2: CSS Changes (dress-blueprint-action)
+## Files
 
-### blueprint.css
-
-**2a. Reduce sidebar width** (line 175): `25ch` -> `17.5ch`
-
-**2b. Bump font-size** (line 178): `0.875rem` -> `0.9375rem`
-
-**2c. Remove `.wrapper.with-chapter-panel` styles** (lines 1389-1401)
-
-### common.css
-
-**2d. Remove chapter panel section** (lines 1041-1135) -- entire "Section 11"
-
-**2e. Remove chapter panel CSS variables** (light ~line 114, dark ~line 321)
-
-**2f. Add inline chapter styles** (in section 10):
-- `.sidebar-blueprint-group` -- flex column container
-- `.sidebar-blueprint-toggle` -- clickable, cursor pointer
-- `.sidebar-chevron` -- rotate 90deg when `.expanded`
-- `.sidebar-chapter-list` -- `max-height: 0` -> `max-height: 50vh` transition
-- `.sidebar-chapter-item` -- indented, smaller font, active highlight
+- `dev/markdowns/permanent/SLS_PLANNING.md`
+- `dev/markdowns/permanent/SLS_EXTENSION.md`
 
 ---
 
-## Wave 3: JavaScript (plastex.js)
+## Step 0: ToS Compliance Analysis
 
-**3a. Remove** `$("nav.chapter-panel").toggle()` from mobile toggle (line 61)
+### Anthropic (Claude Code)
 
-**3b. Add chapter toggle:**
-```js
-(function() {
-  var $group = $('.sidebar-blueprint-group');
-  if (!$group.length) return;
-  var $toggle = $group.find('.sidebar-blueprint-toggle');
-  if (document.body.hasAttribute('data-blueprint-page')) {
-    $group.addClass('expanded');
-  }
-  $toggle.on('click', function() {
-    $group.toggleClass('expanded');
-  });
-})();
-```
+In January 2026, Anthropic blocked third-party tools that **spoofed Claude Code's client identity** to use subscription OAuth tokens at favorable rates. The crackdown targeted tools like OpenCode that sent headers pretending to be Claude Code to access Pro/Max pricing.
+
+**Our extension does NOT do this.** The architecture spawns the actual `claude` CLI binary as a child process. This is functionally identical to running `claude` in any terminal emulator (iTerm, Warp, Hyper). We're not:
+- Spoofing client identity
+- Extracting or reusing OAuth tokens
+- Making direct API calls with subscription credentials
+- Building a competing product
+
+We're building a UI that runs Claude Code as-is, the same way VSCode's integrated terminal runs it. The extension is a rendering layer on top of Claude Code's own JSONL output.
+
+**Risk area:** If Anthropic later restricts programmatic spawning of the CLI (unlikely -- it would break CI/CD use cases), the CLI backend would break. The extension API (Option 2) would be the clean path forward.
+
+**Recommendation:** Add a note in SLS_EXTENSION.md acknowledging the distinction and stating the extension uses the official CLI binary, not credential spoofing. If distributing commercially, verify with Anthropic directly.
+
+Sources:
+- [VentureBeat: Anthropic cracks down on unauthorized Claude usage](https://venturebeat.com/technology/anthropic-cracks-down-on-unauthorized-claude-usage-by-third-party-harnesses)
+- [Anthropic: Updates to consumer terms](https://www.anthropic.com/news/updates-to-our-consumer-terms)
+- [Hacker News discussion](https://news.ycombinator.com/item?id=46549823)
+- [Anthropic Usage Policy update](https://privacy.claude.com/en/articles/9301722-updates-to-our-acceptable-use-policy-now-usage-policy-consumer-terms-of-service-and-privacy-policy)
+
+### VSCode Marketplace
+
+No restrictions found on extensions that wrap CLI tools or render external process output. This is a standard pattern (e.g., GitLens wraps git, Docker extension wraps docker CLI). The marketplace terms mainly restrict extension usage to Microsoft VS Code products (not forks like VSCodium).
+
+**Recommendation:** No issues for marketplace distribution. Standard extension.
+
+### Action
+
+Add a "Compliance" section to SLS_EXTENSION.md documenting:
+1. The extension runs the official `claude` CLI binary (no credential extraction)
+2. No API calls bypass Claude Code's managed environment
+3. Commercial distribution should be verified with Anthropic
+4. VSCode Marketplace: standard CLI-wrapper pattern, no restrictions
 
 ---
 
-## Execution
+## SLS_PLANNING.md Changes
 
-Single `sbs-developer` agent, sequential waves (tight coupling between template and CSS/JS). Commit order: dress-blueprint-action first, Runway second, parent repo pointer update last.
+### 1. Fix "What SLS Is Not" (line 62)
+
+Remove "Not a coding assistant or IDE plugin" -- it's now planned as a VSCode extension. Replace with something like "Not an IDE replacement -- it augments the editor with structured workflow."
+
+### 2. Add extension to "What SLS Is" (after item 6, line 58)
+
+Add item 7:
+
+> **A VSCode extension** -- Purpose-built interface that structurally enforces the skill workflow. Four buttons map to four skills; a chat zone handles interaction; an archive plane displays entry history. The extension transforms framework conventions into interface constraints. See [SLS_EXTENSION.md](SLS_EXTENSION.md).
+
+### 3. Update Architecture section (after line 142)
+
+Add a subsection under Architecture referencing the extension as the primary UI layer, sitting atop the CLI/MCP/archive stack. Brief -- just establish the relationship and point to the companion doc.
+
+### 4. Update Phases (lines 208-239)
+
+- Phase 1: Add "Extension scaffold with skill buttons and archive plane" to deliverables
+- Phase 2: The extension IS the onboarding -- "sls init" + extension activation replaces guided walkthrough
+- Phase 3: Extension becomes extensible (custom skill buttons, custom chrome)
+
+### 5. Update Open Questions (lines 245-249)
+
+- Q1 (Package distribution): Extension is the answer for VSCode users; CLI remains for terminal users
+- Q2 (MCP server packaging): Extension needs MCP access; bundle as sidecar
+- Add new Q: "Claude Code programmatic API -- when/if Anthropic exposes extension-to-extension communication, swap CLI backend for native API"
 
 ---
 
-## Gates
+## SLS_EXTENSION.md Changes
 
-```yaml
-gates:
-  tests: all_pass
-  test_tier: evergreen
-  quality:
-    T5: ">= 0.8"
-    T6: ">= 0.9"
-  regression: ">= 0"
-validators:
-  - visual: [dashboard, chapter, dep_graph]
-  - timing: true
-```
+### 6. Add "Structural Enforcement" section (after Core Idea, before Layout)
 
-## Validation Steps
+New section capturing the analysis from our conversation. Key points:
 
-1. Build SBS-Test: `python ../../dev/scripts/build.py`
-2. Capture: `python3 -m sbs capture --project SBSTest --interactive`
-3. Visual check: no chapter panel column, narrower sidebar, chapters inline under Blueprint
-4. Tests: `pytest sbs/tests/pytest -m evergreen --tb=short`
-5. Build GCR to confirm multi-project (has real chapters)
+- **Alignment through structure:** Skill buttons force intent declaration before interaction begins. The dialogue starts pre-aligned.
+- **Loop visibility:** The four buttons spatially encode Work → Archive → Analyze → Improve.
+- **Single-agent as physical constraint:** One chat zone, one border color, one state indicator.
+- **Transparency becomes ambient:** Archive plane always visible, epochs as visual dividers.
+- **Introspection promoted to peer status:** Self-improve at same visual level as Task.
+- **Verification rendered:** Phase indicators make gate enforcement visible.
+- **Data generation automatic:** Every interaction flows through a skill, producing structured entries.
+- **Escape hatch preserves flexibility:** Raw Claude Code always available for power users.
+- **Net effect:** Transforms SLS from a discipline into an environment.
+
+### 7. Add "Orchestration Overhead Reduction" subsection
+
+Document the specific overhead that disappears:
+- No need for CLAUDE.md to enforce skill usage patterns -- the UI does it
+- No need for the agent to track/display phase state -- the UI renders it
+- No risk of orphaned sessions or missed archive entries -- the UI channels everything through skills
+- AskUserQuestion becomes native UI rather than terminal interruption
+
+### 8. Cross-reference from extension back to planning
+
+Add a paragraph in "Relationship to SLS" noting that the extension resolves several open questions from SLS_PLANNING.md and changes the framework's relationship to its own principles.
+
+---
+
+## Verification
+
+- Both files render correctly as markdown
+- Cross-references between documents are valid
+- No contradictions between the two documents
+- "What SLS Is Not" no longer contradicts the extension plan
