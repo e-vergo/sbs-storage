@@ -119,26 +119,28 @@ def profile_session(entry: "ArchiveEntry", sessions: list["SessionData"]) -> lis
     # ------------------------------------------------------------------
     # session: tags
     # ------------------------------------------------------------------
-    if total_file_ops > 0 and total_reads / total_file_ops > 0.8 and total_reads > 30:
-        tags.append("session:exploration-heavy")
+    # Session-type tags: mutually exclusive (emit only the dominant one)
+    if total_file_ops > 0:
+        session_type_candidates: list[tuple[float, str]] = [
+            (total_reads / total_file_ops, "session:exploration-heavy"),
+            (total_edits / total_file_ops, "session:edit-heavy"),
+            (total_writes / total_file_ops, "session:creation-heavy"),
+        ]
+        best_ratio, best_tag = max(session_type_candidates, key=lambda x: x[0])
+        if best_ratio > 0.4:
+            tags.append(best_tag)
 
-    if total_edits / max(total_file_ops, 1) > 0.5 and total_edits > 20:
-        tags.append("session:edit-heavy")
-
-    if total_writes > total_edits and total_writes > 10:
-        tags.append("session:creation-heavy")
-
-    if bash_calls / max(total_tool_calls, 1) > 0.4:
-        tags.append("session:bash-heavy")
-
-    if mcp_calls / max(total_tool_calls, 1) > 0.4:
-        tags.append("session:mcp-heavy")
-
-    if (glob_calls + grep_calls) / max(total_tool_calls, 1) > 0.3:
-        tags.append("session:search-heavy")
-
-    if task_calls / max(total_tool_calls, 1) > 0.2:
-        tags.append("session:delegation-heavy")
+    # Tool-dominance tags: mutually exclusive (emit only the dominant one)
+    if total_tool_calls > 0:
+        tool_dom_candidates: list[tuple[float, str]] = [
+            (bash_calls / total_tool_calls, "session:bash-heavy"),
+            (mcp_calls / total_tool_calls, "session:mcp-heavy"),
+            ((glob_calls + grep_calls) / total_tool_calls, "session:search-heavy"),
+            (task_calls / total_tool_calls, "session:delegation-heavy"),
+        ]
+        best_ratio, best_tag = max(tool_dom_candidates, key=lambda x: x[0])
+        if best_ratio > 0.3:
+            tags.append(best_tag)
 
     if total_msgs > 0:
         user_ratio = total_user_msgs / max(total_msgs, 1)
