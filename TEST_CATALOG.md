@@ -14,7 +14,7 @@
   Orchestration
   Session state and context
 
-    [+] sbs_oracle_query             RO
+    [+] ask_oracle                   RO
     [+] sbs_archive_state            RO
     [+] sbs_epoch_summary            RO
     [+] sbs_context                  RO
