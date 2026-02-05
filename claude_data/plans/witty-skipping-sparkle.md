@@ -4,6 +4,20 @@
 
 Execute issues #225-229 (Waves 1-2 of #224) via sequential agent orchestration, then validate with a testing agent.
 
+## Baseline Timing (GCR, 61 nodes, Lake cached)
+
+| Phase | Time | % | Notes |
+|-------|------|---|-------|
+| **build_dep_graph** | **24.1s** | **56.2%** | PRIMARY BOTTLENECK |
+| generate_verso | 7.9s | 18.4% | Verso doc generation |
+| sync_repos | 5.7s | 13.3% | Git operations |
+| generate_site | 3.6s | 8.4% | Runway HTML |
+| start_server | 1.0s | 2.3% | HTTP server |
+| Lake build phases | <0.1s | <0.5% | Already cached |
+| **Total** | **42.9s** | 100% | |
+
+**Key insight**: `build_dep_graph` (extract_blueprint graph) takes 24 seconds and runs every build. This is where caching has the most impact.
+
 ## Execution Model
 
 **Orchestrator** (top-level chat): Spawns one `sbs-developer` agent per issue, waits for completion, then spawns next.
@@ -14,23 +28,54 @@ Execute issues #225-229 (Waves 1-2 of #224) via sequential agent orchestration, 
 
 ---
 
-## Agent 1: Manifest Hash Cache (#225)
+## Agent 1: Graph Output Cache (#225)
 
 **Scope**: `dev/scripts/sbs/build/caching.py` + `orchestrator.py`
 
-**Implementation**:
-1. Add `get_manifest_hash(manifest_path)` → SHA256 of manifest.json content
-2. Add `get_graph_cache_path(cache_dir, manifest_hash)` → `.graph_cache/{hash}.json`
-3. In `orchestrator.py`:
-   - Before `generate_dep_graph()`: check cache hit
-   - If hit: copy cached files, skip generation
-   - If miss: run normally, save to cache
+**Target**: Skip 24.1s `build_dep_graph` when graph unchanged OR when not needed
 
-**Cache Location**: `.lake/build/dressed/.graph_cache/{manifest_hash}.{json,svg}`
+**The Problem**: `extract_blueprint graph` runs every build and takes 24s. It:
+- Loads Lean environment
+- Constructs graph from @[blueprint] nodes
+- Runs O(n³) transitive reduction
+- Runs Sugiyama layout algorithm
+- Writes SVG + JSON + manifest
+
+**Two-Pronged Solution**:
+
+### A. `--skip-graph` Flag (for dev iteration)
+Add CLI flag to skip graph generation entirely. Useful when:
+- Working on CSS/styling
+- Working on non-graph site features
+- Rapid iteration where graph is irrelevant
+
+```bash
+python build.py --skip-graph  # Skip graph generation entirely
+```
+
+### B. Graph Cache (for normal builds)
+Hash the INPUT (manifest.json from Lake build), cache the OUTPUT (dep-graph.json, dep-graph.svg).
+
+**Implementation**:
+1. Add `--skip-graph` flag to build.py argparse
+2. If `--skip-graph`: skip `generate_dep_graph()` phase entirely
+3. Otherwise: check graph cache before generation
+4. Cache key: SHA256 of manifest.json content
+5. Cache hit: copy cached files, skip generation
+6. Cache miss: run normally, save outputs to cache
+
+**Cache Location**: `.lake/build/dressed/.graph_cache/{manifest_hash}/`
+```
+.graph_cache/
+└── {hash}/
+    ├── dep-graph.json
+    ├── dep-graph.svg
+    └── manifest.json  (copy for verification)
+```
 
 **Files Modified**:
-- `dev/scripts/sbs/build/caching.py` (add functions)
-- `dev/scripts/sbs/build/orchestrator.py` (integrate cache check)
+- `dev/scripts/sbs/build/caching.py` (add graph cache functions)
+- `dev/scripts/sbs/build/orchestrator.py` (add --skip-graph flag, integrate cache)
 
 ---
 
@@ -152,22 +197,21 @@ Execute issues #225-229 (Waves 1-2 of #224) via sequential agent orchestration, 
 
 **Testing Protocol**:
 1. Run evergreen tests: `pytest sbs/tests/pytest -m evergreen`
-2. Build SBS-Test: `./dev/build-sbs-test.sh`
+2. Build GCR (has 61 nodes, good test case)
 3. Measure build times:
-   - Full build (clean)
-   - Incremental build (no changes)
-   - CSS-only change
-   - Graph-only change (should be near-instant with cache hit)
+   - Full build (clean cache)
+   - Incremental build (graph cache hit)
+   - After CSS-only change
 4. Validate site generation works
-5. Run `sbs compliance --project SBSTest`
+5. Run `sbs compliance --project GCR`
 
-**Success Criteria**:
-| Scenario | Before | Target |
-|----------|--------|--------|
-| Full rebuild | 5-7s | 3-4s |
-| Incremental (no changes) | 3-4s | 0.5-1s |
-| CSS-only | 1-2s | 0.3s |
-| Graph cache hit | 2-3s | 0.1s |
+**Success Criteria** (GCR baseline: 42.9s):
+| Scenario | Before | Target | Savings |
+|----------|--------|--------|---------|
+| `--skip-graph` flag | 42.9s | ~18s | 24s (skip build_dep_graph) |
+| Graph cache hit | 42.9s | ~18s | 24s (cached graph) |
+| CSS-only change | 42.9s | ~5s | 37s (fast path) |
+| Full rebuild | 42.9s | ~40s | 3s (asset skip) |
 
 ---
 
@@ -218,7 +262,25 @@ Orchestrator
 
 After all agents complete:
 1. All pytest tests pass
-2. SBS-Test builds successfully
-3. Build times meet targets
+2. GCR builds successfully with timing logged
+3. Build times meet targets:
+   - Graph cache hit: ~18s (was 42.9s)
+   - Full rebuild: <45s
 4. Compliance check passes
 5. No regressions in visual output
+
+---
+
+## Priority Order by Impact
+
+Based on timing analysis, the agents are ordered by expected savings:
+
+| Agent | Issue | Target Phase | Savings |
+|-------|-------|--------------|---------|
+| 1 | #225 | build_dep_graph (24.1s) | **~24s** |
+| 2 | #226 | Asset copying | ~0.1s |
+| 3 | #227 | Config (enabler) | 0s |
+| 4 | #228 | Per-decl generation | ~2-5s |
+| 5 | #229 | Schemas (infra) | 0s |
+
+**Agent 1 is the highest impact** - skipping `build_dep_graph` saves 24 seconds per build.

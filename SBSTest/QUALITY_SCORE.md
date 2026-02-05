@@ -1,8 +1,8 @@
 # Quality Score Report
 
-**Project:** SBSTest | **Last Evaluated:** 2026-02-04T18:14:42.463685
+**Project:** SBSTest | **Last Evaluated:** 2026-02-05T16:33:14.646435
 
-## Overall Score: 67.12%
+## Overall Score: 67.16%
 
 | Metric | Name | Weight | Score | Status |
 |--------|------|--------|-------|--------|
@@ -11,7 +11,7 @@
 | t3-dashboard-clarity | Dashboard Clarity | 10% | - | - |
 | t4-toggle-discoverability | Toggle Discoverability | 10% | - | - |
 | t5-color-match | Status Color Match | 15% | 100.0 | PASS |
-| t6-css-coverage | CSS Variable Coverage | 15% | 91.5 | PASS |
+| t6-css-coverage | CSS Variable Coverage | 15% | 91.6 | PASS |
 | t7-jarring | Jarring-Free Check | 15% | - | - |
 | t8-professional | Professional Score | 15% | - | - |
 
@@ -45,13 +45,13 @@
 
 | Timestamp | Overall Score |
 |-----------|---------------|
-| 2026-02-04T16:41:08 | 67.12% |
-| 2026-02-04T17:30:54 | 67.12% |
-| 2026-02-04T18:00:56 | 67.11% |
-| 2026-02-04T18:02:14 | 67.11% |
 | 2026-02-04T18:05:06 | 67.11% |
 | 2026-02-04T18:06:31 | 67.11% |
 | 2026-02-04T18:08:17 | 67.12% |
 | 2026-02-04T18:10:04 | 67.12% |
 | 2026-02-04T18:14:24 | 67.12% |
 | 2026-02-04T18:14:42 | 67.12% |
+| 2026-02-05T16:33:05 | 67.16% |
+| 2026-02-05T16:33:08 | 67.16% |
+| 2026-02-05T16:33:14 | 67.16% |
+| 2026-02-05T16:33:14 | 67.16% |
