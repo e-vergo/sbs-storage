@@ -1,13 +1,13 @@
 # Quality Score Report
 
-**Project:** SBSTest | **Last Evaluated:** 2026-02-05T17:08:35.339193
+**Project:** SBSTest | **Last Evaluated:** 2026-02-05T17:11:27.514190
 
-## Overall Score: 67.20%
+## Overall Score: 67.21%
 
 | Metric | Name | Weight | Score | Status |
 |--------|------|--------|-------|--------|
 | t1-cli-execution | CLI Execution | 10% | 0.0 | FAIL |
-| t2-ledger-population | Ledger Population | 10% | 48.6 | FAIL |
+| t2-ledger-population | Ledger Population | 10% | 48.7 | FAIL |
 | t3-dashboard-clarity | Dashboard Clarity | 10% | - | - |
 | t4-toggle-discoverability | Toggle Discoverability | 10% | - | - |
 | t5-color-match | Status Color Match | 15% | 100.0 | PASS |
@@ -22,7 +22,7 @@
 
 ### t2-ledger-population
 - Fields never populated: sync_error
-- Population rate 48.6% below threshold 70.0%
+- Population rate 48.7% below threshold 70.0%
 
 ### t5-color-match
 - All 6 status colors match canonical values
@@ -45,8 +45,6 @@
 
 | Timestamp | Overall Score |
 |-----------|---------------|
-| 2026-02-05T16:59:52 | 67.18% |
-| 2026-02-05T17:00:07 | 67.19% |
 | 2026-02-05T17:00:56 | 67.19% |
 | 2026-02-05T17:02:17 | 67.19% |
 | 2026-02-05T17:03:10 | 67.19% |
@@ -55,3 +53,5 @@
 | 2026-02-05T17:06:39 | 67.20% |
 | 2026-02-05T17:07:25 | 67.20% |
 | 2026-02-05T17:08:35 | 67.20% |
+| 2026-02-05T17:09:59 | 67.20% |
+| 2026-02-05T17:11:27 | 67.21% |
