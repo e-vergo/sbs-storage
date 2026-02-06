@@ -1,6 +1,6 @@
 # Quality Score Report
 
-**Project:** SBSTest | **Last Evaluated:** 2026-02-05T23:10:08.185475
+**Project:** SBSTest | **Last Evaluated:** 2026-02-06T00:39:01.316893
 
 ## Overall Score: 67.23%
 
@@ -35,18 +35,16 @@
 - common.css:357: hardcoded rgba(57, 98, 130, 0.25) in border-color
 - common.css:358: hardcoded rgba(0, 0, 0, 0.08) in box-shadow
 - common.css:362: hardcoded rgba(57, 98, 130, 0.18) in background-color
-- common.css:537: hardcoded rgba(0, 0, 0, 0.15) in box-shadow
-- common.css:586: hardcoded rgba(0, 0, 0, 0.2) in box-shadow
-- common.css:606: hardcoded rgba(0, 0, 0, 0.4) in background
-- common.css:619: hardcoded rgba(0, 0, 0, 0.3) in box-shadow
+- common.css:536: hardcoded rgba(0, 0, 0, 0.15) in box-shadow
+- common.css:585: hardcoded rgba(0, 0, 0, 0.2) in box-shadow
+- common.css:605: hardcoded rgba(0, 0, 0, 0.4) in background
+- common.css:618: hardcoded rgba(0, 0, 0, 0.3) in box-shadow
 - ... and 14 more violations
 
 ## Score History
 
 | Timestamp | Overall Score |
 |-----------|---------------|
-| 2026-02-05T17:19:25 | 67.22% |
-| 2026-02-05T17:19:43 | 67.22% |
 | 2026-02-05T17:19:57 | 67.22% |
 | 2026-02-05T23:01:44 | 67.22% |
 | 2026-02-05T23:02:13 | 67.22% |
@@ -55,3 +53,5 @@
 | 2026-02-05T23:03:49 | 67.23% |
 | 2026-02-05T23:09:24 | 67.23% |
 | 2026-02-05T23:10:08 | 67.23% |
+| 2026-02-06T00:36:40 | 67.23% |
+| 2026-02-06T00:39:01 | 67.23% |
