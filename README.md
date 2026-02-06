@@ -627,21 +627,20 @@ The Oracle is auto-regenerated during `/update-and-archive` skill execution.
 
 ---
 
-## Skill Orchestration Tools
+## Capability Context Tools
 
-MCP tools for managing skill state machine transitions:
+MCP context-fetcher tools that assemble context for agent capabilities:
 
-| Tool | Purpose |
-|------|---------|
-| `sbs_skill_status` | Get current skill/substate (read-only) |
-| `sbs_skill_start` | Start a skill, claim global_state |
-| `sbs_skill_transition` | Move to next phase within a skill |
-| `sbs_skill_end` | End skill, release global_state |
+| Tool | Agent | Purpose |
+|------|-------|---------|
+| `sbs_task()` | `sbs-task` | Fetch archive state, issues, recent entries, quality scores for task execution |
+| `sbs_end_epoch()` | `sbs-end-epoch` | Fetch retrospective data, session stats, README staleness for epoch close |
+| `sbs_introspect()` | `sbs-end-epoch` | Fetch entries since last improvement, session stats for introspection |
+| `sbs_qa()` | `sbs-qa` | Fetch project info, server state, prior QA ledger for visual QA |
+| `sbs_converge()` | `sbs-converge` | Fetch prior convergence data, adaptation notes for QA convergence loop |
+| `sbs_log()` | (none -- atomic) | Direct issue creation, no agent needed |
 
-These tools manage the `global_state` field in `archive_index.json`, enabling:
-- Sequential skill execution (only one skill active at a time)
-- Phase tracking within skills (alignment -> planning -> execution -> finalization)
-- Epoch boundaries for `/update-and-archive`
+These tools read from the archive and return structured context blobs for agent injection at zero orchestrator token cost. State is tracked by archive entries written via `sbs archive upload` CLI.
 
 ---
 
