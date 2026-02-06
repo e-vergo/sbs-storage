@@ -120,35 +120,35 @@ rules:
   # ==========================================================================
 
   - name: skill-task
-    scope: both
+    scope: entry
     condition:
       field: skill
       equals: "task"
     tags: ["skill:task"]
 
   - name: skill-self-improve
-    scope: both
+    scope: entry
     condition:
       field: skill
       equals: "self-improve"
     tags: ["skill:self-improve"]
 
   - name: skill-update-and-archive
-    scope: both
+    scope: entry
     condition:
       field: skill
       equals: "update-and-archive"
     tags: ["skill:update-and-archive"]
 
   - name: skill-log
-    scope: both
+    scope: entry
     condition:
       field: skill
       equals: "log"
     tags: ["skill:log"]
 
   - name: skill-none
-    scope: both
+    scope: entry
     condition:
       field: skill
       is_empty: true
@@ -159,81 +159,88 @@ rules:
   # ==========================================================================
 
   - name: trigger-build
-    scope: both
+    scope: entry
     condition:
       field: trigger
       equals: "build"
     tags: ["trigger:build"]
 
   - name: trigger-skill
-    scope: both
+    scope: entry
     condition:
       field: trigger
       equals: "skill"
     tags: ["trigger:skill"]
 
   - name: trigger-manual
-    scope: both
+    scope: entry
     condition:
       field: trigger
       equals: "manual"
     tags: ["trigger:manual"]
+
+  - name: trigger-improvement
+    scope: entry
+    condition:
+      field: trigger
+      equals: "improvement"
+    tags: ["trigger:improvement"]
 
   # ==========================================================================
   # scope: Change breadth (file types, repo count)
   # ==========================================================================
 
   - name: scope-cross-repo
-    scope: both
+    scope: entry
     condition:
       field: repos_changed_count
       greater_than: 2
     tags: ["scope:cross-repo"]
 
   - name: scope-multi-repo
-    scope: both
+    scope: entry
     condition:
       field: repos_changed_count
       equals: 2
     tags: ["scope:multi-repo"]
 
   - name: scope-css-js
-    scope: both
+    scope: entry
     condition:
       field: files_modified
       matches_any: ["*.css", "*.js"]
     tags: ["scope:css-js"]
 
   - name: scope-lean
-    scope: both
+    scope: entry
     condition:
       field: files_modified
       matches_any: ["*.lean"]
     tags: ["scope:lean"]
 
   - name: scope-python
-    scope: both
+    scope: entry
     condition:
       field: files_modified
       matches_any: ["*.py"]
     tags: ["scope:python"]
 
   - name: scope-config
-    scope: both
+    scope: entry
     condition:
       field: files_modified
       matches_any: ["*.yaml", "*.json", "*.toml"]
     tags: ["scope:config"]
 
   - name: scope-wide
-    scope: both
+    scope: entry
     condition:
       field: files_modified_count
       greater_than: 50
     tags: ["scope:wide"]
 
   - name: scope-narrow
-    scope: both
+    scope: entry
     condition:
       field: files_modified_count
       less_than: 5
@@ -244,70 +251,70 @@ rules:
   # ==========================================================================
 
   - name: repo-dress
-    scope: both
+    scope: entry
     condition:
       field: files_modified
       matches_any: ["*/Dress/*"]
     tags: ["repo:dress"]
 
   - name: repo-runway
-    scope: both
+    scope: entry
     condition:
       field: files_modified
       matches_any: ["*/Runway/*"]
     tags: ["repo:runway"]
 
   - name: repo-sbs-test
-    scope: both
+    scope: entry
     condition:
       field: files_modified
       matches_any: ["*/SBS-Test/*"]
     tags: ["repo:sbs-test"]
 
   - name: repo-gcr
-    scope: both
+    scope: entry
     condition:
       field: files_modified
       matches_any: ["*/General_Crystallographic_Restriction/*"]
     tags: ["repo:gcr"]
 
   - name: repo-pnt
-    scope: both
+    scope: entry
     condition:
       field: files_modified
       matches_any: ["*/PrimeNumberTheoremAnd/*"]
     tags: ["repo:pnt"]
 
   - name: repo-verso
-    scope: both
+    scope: entry
     condition:
       field: files_modified
       matches_any: ["*/verso/*"]
     tags: ["repo:verso"]
 
   - name: repo-subverso
-    scope: both
+    scope: entry
     condition:
       field: files_modified
       matches_any: ["*/subverso/*"]
     tags: ["repo:subverso"]
 
   - name: repo-lean-architect
-    scope: both
+    scope: entry
     condition:
       field: files_modified
       matches_any: ["*/LeanArchitect/*"]
     tags: ["repo:lean-architect"]
 
   - name: repo-sbs-lsp-mcp
-    scope: both
+    scope: entry
     condition:
       field: files_modified
       matches_any: ["*/sbs-lsp-mcp/*"]
     tags: ["repo:sbs-lsp-mcp"]
 
   - name: repo-dress-blueprint-action
-    scope: both
+    scope: entry
     condition:
       field: files_modified
       matches_any: ["*/dress-blueprint-action/*"]
@@ -343,14 +350,14 @@ rules:
   # ==========================================================================
 
   - name: outcome-build-success
-    scope: both
+    scope: entry
     condition:
       field: build_success
       equals: true
     tags: ["outcome:build-success"]
 
   - name: outcome-build-fail
-    scope: both
+    scope: entry
     condition:
       field: build_success
       equals: false
@@ -369,6 +376,42 @@ rules:
       field: gate_passed
       equals: false
     tags: ["outcome:gate-fail"]
+
+  # ==========================================================================
+  # quality: Quality score changes (entry-level)
+  # ==========================================================================
+
+  - name: quality-has-scores
+    scope: entry
+    condition:
+      field: quality_overall
+      greater_than: 0
+    tags: ["quality:has-scores"]
+
+  # ==========================================================================
+  # content: Entry content indicators
+  # ==========================================================================
+
+  - name: content-has-screenshots
+    scope: entry
+    condition:
+      field: screenshot_count
+      greater_than: 0
+    tags: ["content:has-screenshots"]
+
+  - name: content-has-notes
+    scope: entry
+    condition:
+      field: has_notes
+      equals: true
+    tags: ["content:has-notes"]
+
+  - name: content-multi-repo
+    scope: entry
+    condition:
+      field: repo_count
+      greater_than: 1
+    tags: ["content:multi-repo-commits"]
 
 # =============================================================================
 # Python hooks for complex analysis
@@ -389,3 +432,8 @@ hooks:
     module: outcome_tagger
     function: tag_outcomes
     scope: both
+
+  - name: oracle-first-compliance
+    module: oracle_first
+    function: check_oracle_first
+    scope: session
