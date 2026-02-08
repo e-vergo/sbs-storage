@@ -1,6 +1,6 @@
 # SBS Test Catalog
 
-> Auto-generated on 2026-02-02 22:41:57
+> Auto-generated on 2026-02-07 22:45:42
 > Run `sbs test-catalog` to regenerate
 
 ```
@@ -14,7 +14,7 @@
   Orchestration
   Session state and context
 
-    [+] ask_oracle                   RO
+    [+] sbs_oracle_query             RO
     [+] sbs_archive_state            RO
     [+] sbs_epoch_summary            RO
     [+] sbs_context                  RO
@@ -41,38 +41,53 @@
   PYTEST TESTS
   --------------------------------------------------
 
-  Total: 546 tests
+  Total: 887 tests
 
-    [*] evergreen     505  ( 92.5%)  Stable, always run
-    [~] dev            35  (  6.4%)  In development
-    [-] unmarked        6  (  1.1%)  Needs tier marker
+    [*] evergreen     719  ( 81.1%)  Stable, always run
+    [~] dev            71  (  8.0%)  In development
+    [-] unmarked       97  ( 10.9%)  Needs tier marker
 
   By file:
 
     [-] interactions/test_sidebar.py               6 tests
     [*] mvp/test_authoring_modes.py               15 tests
-    [*] mvp/test_cicd.py                           8 tests
+    [*] mvp/test_cicd.py                          16 tests
+    [*] mvp/test_cross_page_consistency.py        20 tests
     [*] mvp/test_dashboard.py                     13 tests
+    [*] mvp/test_dashboard_accuracy.py            16 tests
     [*] mvp/test_dependency_graph.py              20 tests
+    [*] mvp/test_graph_navigation.py              18 tests
+    [*] mvp/test_inspect_project.py               14 tests
     [*] mvp/test_paper_generation.py              12 tests
+    [*] mvp/test_paper_quality.py                 14 tests
+    [*] mvp/test_sbs_content.py                   18 tests
+    [*] mvp/test_showcase.py                      27 tests
     [*] mvp/test_side_by_side.py                  15 tests
     [*] mvp/test_status_indicators.py             12 tests
     [*] mvp/test_taste.py                         25 tests
-    [*] mvp/test_visual_quality.py                 5 tests
+    [*] mvp/test_theme_and_dark_mode.py           16 tests
+    [*] mvp/test_visual_quality.py                31 tests
     [*] oracle/test_compiler.py                   11 tests
     [*] oracle/test_extractors.py                 23 tests
-    [*] oracle/test_oracle_filters.py             11 tests
+    [-] oracle/test_oracle_filters.py              7 tests
     [*] readme/test_check.py                      19 tests
-    [*] test_archive_invariants.py                25 tests
+    [*] test_archive_invariants.py                34 tests
     [*] test_cli.py                               14 tests
-    [*] test_compliance_mapping.py                20 tests
-    [*] test_gates.py                             39 tests
+    [*] test_compliance_mapping.py                19 tests
+    [*] test_gates.py                             38 tests
+    [~] test_incremental_artifacts.py              5 tests
     [*] test_ledger_health.py                     24 tests
-    [~] test_self_improve.py                      35 tests
+    [~] test_self_improve.py                      66 tests
+    [-] test_tagger_v2.py                         31 tests
+    [-] test_taxonomy.py                          53 tests
+    [*] test_timing_optimization.py               20 tests
+    [*] validators/test_cli_execution.py           6 tests
     [*] validators/test_color_match.py            31 tests
     [*] validators/test_dashboard_clarity.py      31 tests
     [*] validators/test_jarring_check.py          27 tests
     [*] validators/test_professional_score.py     34 tests
+    [*] validators/test_runner.py                  7 tests
+    [*] validators/test_sbs_alignment.py           8 tests
     [*] validators/test_toggle_discoverability.py  34 tests
     [*] validators/test_variable_coverage.py      37 tests
 
@@ -116,6 +131,6 @@
     [+] test-catalog         List all testable components
 
   ==================================================
-  11 MCP tools | 546 tests | 21 CLI commands
+  11 MCP tools | 887 tests | 21 CLI commands
 
 ```
