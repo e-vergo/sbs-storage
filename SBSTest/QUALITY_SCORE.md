@@ -1,8 +1,8 @@
 # Quality Score Report
 
-**Project:** SBSTest | **Last Evaluated:** 2026-02-08T13:44:25.143977
+**Project:** SBSTest | **Last Evaluated:** 2026-02-08T13:58:12.776631
 
-## Overall Score: 67.27%
+## Overall Score: 67.28%
 
 | Metric | Name | Weight | Score | Status |
 |--------|------|--------|-------|--------|
@@ -22,7 +22,7 @@
 
 ### t2-ledger-population
 - Fields never populated: sync_error
-- Population rate 49.0% below threshold 70.0%
+- Population rate 49.1% below threshold 70.0%
 
 ### t5-color-match
 - All 6 status colors match canonical values
@@ -45,8 +45,6 @@
 
 | Timestamp | Overall Score |
 |-----------|---------------|
-| 2026-02-08T13:12:29 | 67.26% |
-| 2026-02-08T13:14:30 | 67.26% |
 | 2026-02-08T13:16:16 | 67.26% |
 | 2026-02-08T13:19:30 | 67.26% |
 | 2026-02-08T13:19:57 | 67.26% |
@@ -55,3 +53,5 @@
 | 2026-02-08T13:40:29 | 67.27% |
 | 2026-02-08T13:42:52 | 67.27% |
 | 2026-02-08T13:44:25 | 67.27% |
+| 2026-02-08T13:57:42 | 67.27% |
+| 2026-02-08T13:58:12 | 67.28% |
