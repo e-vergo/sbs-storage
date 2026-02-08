@@ -1,13 +1,13 @@
 # Quality Score Report
 
-**Project:** SBSTest | **Last Evaluated:** 2026-02-08T13:05:28.605076
+**Project:** SBSTest | **Last Evaluated:** 2026-02-08T13:06:40.982159
 
-## Overall Score: 67.25%
+## Overall Score: 67.26%
 
 | Metric | Name | Weight | Score | Status |
 |--------|------|--------|-------|--------|
 | t1-cli-execution | CLI Execution | 10% | 0.0 | FAIL |
-| t2-ledger-population | Ledger Population | 10% | 48.9 | FAIL |
+| t2-ledger-population | Ledger Population | 10% | 49.0 | FAIL |
 | t3-dashboard-clarity | Dashboard Clarity | 10% | - | - |
 | t4-toggle-discoverability | Toggle Discoverability | 10% | - | - |
 | t5-color-match | Status Color Match | 15% | 100.0 | PASS |
@@ -45,7 +45,6 @@
 
 | Timestamp | Overall Score |
 |-----------|---------------|
-| 2026-02-08T12:36:44 | 67.24% |
 | 2026-02-08T12:38:09 | 67.24% |
 | 2026-02-08T12:38:49 | 67.24% |
 | 2026-02-08T12:39:33 | 67.24% |
@@ -55,3 +54,4 @@
 | 2026-02-08T12:46:51 | 67.25% |
 | 2026-02-08T13:04:44 | 67.25% |
 | 2026-02-08T13:05:28 | 67.25% |
+| 2026-02-08T13:06:40 | 67.26% |
