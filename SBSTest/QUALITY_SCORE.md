@@ -1,6 +1,6 @@
 # Quality Score Report
 
-**Project:** SBSTest | **Last Evaluated:** 2026-02-08T00:30:38.931373
+**Project:** SBSTest | **Last Evaluated:** 2026-02-08T12:26:44.161889
 
 ## Overall Score: 67.24%
 
@@ -29,24 +29,22 @@
 
 ### t6-css-coverage
 - Excluded 53 intentional hardcoded colors (syntax: 47, var defs: 6)
-- common.css:349: hardcoded rgba(57, 98, 130, 0.08) in background-color
-- common.css:350: hardcoded rgba(57, 98, 130, 0.15) in border
-- common.css:356: hardcoded rgba(57, 98, 130, 0.14) in background-color
-- common.css:357: hardcoded rgba(57, 98, 130, 0.25) in border-color
-- common.css:358: hardcoded rgba(0, 0, 0, 0.08) in box-shadow
-- common.css:362: hardcoded rgba(57, 98, 130, 0.18) in background-color
-- common.css:536: hardcoded rgba(0, 0, 0, 0.15) in box-shadow
-- common.css:585: hardcoded rgba(0, 0, 0, 0.2) in box-shadow
-- common.css:605: hardcoded rgba(0, 0, 0, 0.4) in background
-- common.css:618: hardcoded rgba(0, 0, 0, 0.3) in box-shadow
+- common.css:368: hardcoded rgba(57, 98, 130, 0.08) in background-color
+- common.css:369: hardcoded rgba(57, 98, 130, 0.15) in border
+- common.css:375: hardcoded rgba(57, 98, 130, 0.14) in background-color
+- common.css:376: hardcoded rgba(57, 98, 130, 0.25) in border-color
+- common.css:377: hardcoded rgba(0, 0, 0, 0.08) in box-shadow
+- common.css:381: hardcoded rgba(57, 98, 130, 0.18) in background-color
+- common.css:555: hardcoded rgba(0, 0, 0, 0.15) in box-shadow
+- common.css:604: hardcoded rgba(0, 0, 0, 0.2) in box-shadow
+- common.css:624: hardcoded rgba(0, 0, 0, 0.4) in background
+- common.css:637: hardcoded rgba(0, 0, 0, 0.3) in box-shadow
 - ... and 14 more violations
 
 ## Score History
 
 | Timestamp | Overall Score |
 |-----------|---------------|
-| 2026-02-07T20:59:57 | 67.27% |
-| 2026-02-07T23:24:23 | 67.25% |
 | 2026-02-07T23:30:54 | 67.25% |
 | 2026-02-07T23:37:31 | 67.25% |
 | 2026-02-07T23:38:17 | 67.25% |
@@ -55,3 +53,5 @@
 | 2026-02-08T00:17:09 | 67.25% |
 | 2026-02-08T00:23:24 | 67.24% |
 | 2026-02-08T00:30:38 | 67.24% |
+| 2026-02-08T12:25:13 | 67.23% |
+| 2026-02-08T12:26:44 | 67.24% |
