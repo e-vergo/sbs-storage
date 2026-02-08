@@ -134,3 +134,148 @@
   11 MCP tools | 887 tests | 21 CLI commands
 
 ```
+
+## Testing Conventions
+
+### Threshold-Based Assertions
+
+For visual and layout tests, prefer threshold assertions over exact-value assertions:
+
+**When to use thresholds:**
+- CSS spacing values: `assert padding >= parse_rem("1rem")` instead of `assert padding == "1.5rem"`
+- Coverage metrics: `assert coverage >= 0.90` instead of `assert coverage == 0.95`
+- Timing measurements: `assert duration < 200` (ms) instead of `assert duration == 150`
+
+**When to use exact values:**
+- Hex color codes (T5 status colors must match exactly)
+- Boolean states (element exists or doesn't)
+- Enum values (status must be one of 6 defined values)
+
+**Pattern examples from existing tests:**
+- `test_sbs_alignment.py`: Uses `>= 1rem` threshold for padding checks
+- `test_color_match.py`: Uses exact hex comparison for status colors
+- `test_variable_coverage.py`: Uses `>= 0.90` threshold for CSS variable coverage
+
+**Rationale:** Exact pixel assertions create false failures when CSS is adjusted. Threshold assertions catch real regressions (value dropped to 0) while tolerating intentional adjustments (1.5rem -> 2rem).
+
+## Artifact Encoding Paths (Dress)
+
+All output paths must apply the same sanitization. See #273 for background.
+
+### Per-Declaration Artifacts (Generate/Declaration.lean)
+
+These are written during elaboration when `BLUEPRINT_DRESS=1`. Each `@[blueprint]` declaration
+gets a subdirectory under `.lake/build/dressed/{Module/Path}/{sanitized-label}/`.
+
+| Path | Output File | Sanitization | Test Coverage |
+|------|-------------|-------------|---------------|
+| HTML direct | `decl.html` | `stripDelimiterBlocks` on rendered HTML | `test_delimiter_sanitization.py` |
+| Hover JSON direct | `decl.hovers.json` | `stripDelimiterBlocks` on hover JSON | `test_delimiter_sanitization.py` |
+| Metadata JSON | `decl.json` | None (JSON-escaped name/label only) | None |
+| Manifest entry | `manifest.entry` | None (JSON-escaped label/path only) | None |
+
+### TeX Artifacts (Generate/Latex.lean)
+
+These embed syntax-highlighted HTML inside LaTeX macros via base64 encoding.
+The `decl.tex` file contains all of these as LaTeX commands.
+
+| Path | LaTeX Macro | Sanitization | Test Coverage |
+|------|------------|-------------|---------------|
+| Signature HTML | `\leansignaturesourcehtml{base64}` | `stripDelimiterBlocks` then `Base64.encodeString` | `test_delimiter_sanitization.py` |
+| Proof body HTML | `\leanproofsourcehtml{base64}` | `stripDelimiterBlocks` then `Base64.encodeString` | `test_delimiter_sanitization.py` |
+| Hover JSON | `\leanhoverdata{base64}` | `stripDelimiterBlocks` then `Base64.encodeString` | `test_delimiter_sanitization.py` |
+| Above/below narrative | `\leanabove{base64}`, `\leanbelow{base64}` | `Base64.encodeString` only (raw LaTeX, no delimiter concern) | None |
+
+### Legacy Output Path (Output.lean)
+
+The `toLatex` method on `NodeWithPos` emits additional macros for backward compatibility
+with leanblueprint. This path does NOT apply `stripDelimiterBlocks`.
+
+| Path | LaTeX Macro | Sanitization | Test Coverage |
+|------|------------|-------------|---------------|
+| Full source HTML | `\leansourcehtml{base64}` | `Base64.encodeString` only | None |
+| Signature HTML | `\leansignaturesourcehtml{base64}` | `Base64.encodeString` only | None |
+| Proof body HTML | `\leanproofsourcehtml{base64}` | `Base64.encodeString` only | None |
+| Full source JSON | `\leansource{base64}` | `Base64.encodeString` only | None |
+| Signature JSON | `\leansignaturesource{base64}` | `Base64.encodeString` only | None |
+| Proof body JSON | `\leanproofsource{base64}` | `Base64.encodeString` only | None |
+
+**Note:** The `Output.lean` legacy path does not strip delimiter blocks. This is a known
+gap -- the `toLatex` method renders HTML via `HtmlRender.renderHighlightedToHtml` without
+`stripDelimiterBlocks`. Since this path is used for the `:blueprint` Lake facet (plasTeX
+consumption), delimiter leakage here would appear as raw `/-%%...%%-/` text in the
+leanblueprint-style output. See #273.
+
+### Serialize Paths (Serialize/*.lean)
+
+Module-level serialization for the hook mechanism. These write per-module aggregate files,
+not per-declaration artifacts.
+
+| Path | Output File | Sanitization | Test Coverage |
+|------|-------------|-------------|---------------|
+| Module JSON | `module.json` | None (SubVerso Module format) | None |
+| HTML map JSON | `module.html.json` | None (raw HTML from `renderHighlightedToHtml`) | None |
+| Dressed artifacts | `module.dressed.json` | None (includes `htmlBase64` and `jsonBase64`) | None |
+
+**Note:** The Serialize paths store raw highlighting data and pre-rendered HTML without
+delimiter stripping. These are intermediate files consumed by `Output.lean`'s `toLatex`
+method, which inherits the same gap.
+
+### Sanitization Function
+
+`stripDelimiterBlocks` (defined in `Generate/Latex.lean`) removes `/-%%...%%-/` block
+delimiters that embed TeX content in Lean comments. These leak through SubVerso's
+highlighting pipeline because SubVerso preserves comment text. The function:
+
+1. Splits on `/-%%` opening markers
+2. For each segment, finds the matching `%%-/` closing marker
+3. Removes content between delimiters, preserving text outside
+4. Handles unclosed delimiters gracefully (restores the opener)
+
+## Fan-Out Synchronization Points
+
+Architecture has identified fan-out points where changes must be applied to ALL parallel paths:
+
+### @[blueprint] Declaration Fan-Out
+
+When a new field is added to `Architect.Node` or the rendering of a declaration changes,
+these parallel output paths must all be updated:
+
+| Path | File | Consumer |
+|------|------|----------|
+| HTML artifact | `Generate/Declaration.lean` -> `decl.html` | Runway blueprint pages |
+| TeX artifact | `Generate/Latex.lean` -> `decl.tex` | plasTeX / leanblueprint |
+| Hover JSON | `Generate/Declaration.lean` -> `decl.hovers.json` | JavaScript tooltip engine |
+| Legacy TeX | `Output.lean` -> `\leansourcehtml`, `\leansignaturesourcehtml`, etc. | `:blueprint` Lake facet |
+| Metadata JSON | `Generate/Declaration.lean` -> `decl.json` | Debugging / tooling |
+
+### Runway Rendering Fan-Out
+
+The side-by-side display is rendered in two contexts that must stay synchronized:
+
+| Context | File | Entry Point |
+|---------|------|-------------|
+| Blueprint chapter pages | `Runway/Render.lean` | `renderNode` -> `Dress.Render.renderSideBySide` |
+| Paper pages | `Runway/Paper.lean` | `PaperNodeInfoExt.toSbsData` -> `Dress.Render.renderSideBySide` |
+| Dependency graph modals | `Runway/Render.lean` | `renderNodeModal` -> `renderNode` |
+
+These three consumers all route through `Dress.Render.renderSideBySide` (in
+`Dress/Render/SideBySide.lean`), which is the consolidation point. Changes to
+`SbsData` fields propagate automatically. However, the *construction* of `SbsData`
+differs between `Render.lean` (from `NodeInfo`) and `Paper.lean` (from `PaperNodeInfoExt`),
+so new fields must be mapped in both places.
+
+### Metric: Synchronization Completeness
+
+For each fan-out point, track:
+- **Paths enumerated:** Number of parallel paths (from architecture docs)
+- **Paths updated:** Number modified in a given change (from git diffs)
+- **Ratio:** Updated / Enumerated
+
+A ratio < 1.0 signals a synchronization hazard. This can be checked during build
+validation or as a pre-commit hook.
+
+**Implementation approach:** A lightweight script could parse git diffs for changes
+to fan-out files and warn when only a subset of a fan-out group is modified. For
+example, if `Generate/Declaration.lean` is modified but `Output.lean` is not, emit
+a warning for the `@[blueprint] Declaration Fan-Out` group.
