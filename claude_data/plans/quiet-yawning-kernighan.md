@@ -1,141 +1,53 @@
-# Extend Declaration Type Support (#342)
+# Plan: Register Dress + Runway as Buildable SBS Projects
 
 ## Context
 
-The Dress toolchain only treats 5 declaration types as first-class: `def`, `theorem`, `axiom`, `opaque`, `inductive`. Structures, classes, instances, and abbrevs are partially supported (graph shapes work, `@[blueprint]` works) but are misclassified in coverage tracking (`structure` reports as "inductive", `instance`/`abbrev` report as "def") and lack auto-detection of their `latexEnv` type.
-
-This blocks self-documentation of Dress and Runway, which use these declaration types extensively.
-
-## API Availability (Verified)
-
-Lean v4.28.0-rc1 (pinned in Dress). All APIs available via existing `import Lean` + `open Lean Meta`:
-
-| API | Signature | Detects |
-|-----|-----------|---------|
-| `Lean.isClass` | `env → name → Bool` | class vs structure |
-| `Lean.isStructure` | `env → name → Bool` | structure vs plain inductive |
-| `Lean.Meta.isInstanceCore` | `env → name → Bool` | typeclass instance |
-| `DefinitionVal.hints.isAbbrev` | `Bool` (on `.defnInfo dv`) | abbrev vs plain def |
+Dress and Runway already have complete self-documentation infrastructure (311 and 304 `@[blueprint]` annotations, `blueprint.tex`, `runway.json`, Verso docs). What's missing is registration in the SLS build tools so `sls_build_project`, `sls_validate_project`, etc. recognize them.
 
 ## Changes
 
-### 1. `Dress/Graph/Build.lean` (3 edits)
+### File 1: `dev/mcp/sls-mcp/src/sls_mcp/sls_tools.py`
 
-**a) `constantKind` (L434-442)** — change signature to `(env : Environment) → (name : Name) → (ci : ConstantInfo) → String`
+**10 project maps/descriptions need Dress + Runway entries.** All follow the same pattern:
 
-```lean
-private def constantKind (env : Lean.Environment) (name : Lean.Name) (ci : Lean.ConstantInfo) : String :=
-  match ci with
-  | .defnInfo dv =>
-    if Lean.Meta.isInstanceCore env name then "instance"
-    else if dv.hints.isAbbrev then "abbrev"
-    else "def"
-  | .thmInfo _    => "theorem"
-  | .axiomInfo _  => "axiom"
-  | .opaqueInfo _ => "opaque"
-  | .inductInfo _ =>
-    if Lean.isClass env name then "class"
-    else if Lean.isStructure env name then "structure"
-    else "inductive"
-  | _             => "other"
+Add to each `project_paths`/`project_map` dict:
+```python
+"Dress": SBS_ROOT / "toolchain" / "Dress",
+"dress": SBS_ROOT / "toolchain" / "Dress",
+"Runway": SBS_ROOT / "toolchain" / "Runway",
+"runway": SBS_ROOT / "toolchain" / "Runway",
 ```
 
-**b) `computeCoverage` call site (L478)** — pass `env` and `name`:
-```lean
-kind := constantKind env name ci  -- was: constantKind ci
-```
+And update each Field description to include "Dress, Runway" in the list.
 
-**c) Extend axiom-override pattern (after L404)** — auto-detect `latexEnv` for graph `envType`:
-```lean
--- After the existing axiom detection block:
-| some (.inductInfo _) =>
-  let kind := if Lean.isClass env node.name then "class"
-    else if Lean.isStructure env node.name then "structure"
-    else none
-  if let some k := kind then
-    let updatedStatement := { dressNode.toNode.statement with latexEnv := k }
-    let updatedNode := { dressNode.toNode with statement := updatedStatement }
-    dressNode := { dressNode with toNode := updatedNode }
-| some (.defnInfo dv) =>
-  let kind := if Lean.Meta.isInstanceCore env node.name then some "instance"
-    else if dv.hints.isAbbrev then some "abbrev"
-    else none
-  if let some k := kind then
-    let updatedStatement := { dressNode.toNode.statement with latexEnv := k }
-    let updatedNode := { dressNode.toNode with statement := updatedStatement }
-    dressNode := { dressNode with toNode := updatedNode }
-```
+Affected functions (line numbers from exploration):
+1. `sls_validate_project` -- L609 (description), L633-646 (project_map)
+2. `sls_build_project` -- L736 (description), L752-758 (docstring), L761-777 (project_paths), L785 (error msg)
+3. `sls_generate_graph` -- L885 (description), L904-920 (project_paths), L928 (error msg)
+4. `sls_serve_project` -- L1051 (description), L1071-1087 (site_paths), L1096 (error msg), L1100-1116 (project_map)
+5. `sls_last_screenshot` -- L1314 (description), L1337-1350 (project_map)
+6. `sls_visual_history` -- L1411 (description), L1429-1442 (project_map)
+7. `sls_search_entries` -- L1497 (description), L1524-1537 (project_map)
+8. `sls_inspect_project` -- L1636 (description), L1660-1673 (project_map)
 
-### 2. `Dress/Generate/Latex.lean` (L36-46)
+**Fix `sls_build_project` invocation (pre-existing bug):**
+- L804: `cmd = ["python", str(scripts_dir / "build.py")]` -- `build.py` doesn't exist
+- Change to: `cmd = ["lake", "build"]` (which is what actually works)
+- This fixes all projects, not just Dress/Runway
 
-**`getDefaultLatexEnv`** — add sub-classification:
+### File 2: `dev/scripts/sls/cli.py`
 
-```lean
-def getDefaultLatexEnv (name : Name) : CommandElabM String := do
-  let env ← getEnv
-  let some info := env.find? name | return "theorem"
-  match info with
-  | .thmInfo _ => return "theorem"
-  | .defnInfo dv =>
-    if Meta.isInstanceCore env name then return "instance"
-    else if dv.hints.isAbbrev then return "abbrev"
-    else return "definition"
-  | .opaqueInfo _ => return "definition"
-  | .inductInfo _ =>
-    if isClass env name then return "class"
-    else if isStructure env name then return "structure"
-    else return "definition"
-  | .ctorInfo _ => return "definition"
-  | .recInfo _ => return "definition"
-  | _ => return "theorem"
-```
-
-### 3. `LeanArchitect/Attribute.lean` (L275) — separate repo
-
-Auto-detect default `latexEnv`:
-```lean
--- Current:
-latexEnv := cfg.latexEnv.getD (if hasProof then "theorem" else "definition")
--- New: query env when cfg.latexEnv is none
-latexEnv := match cfg.latexEnv with
-  | some e => e
-  | none =>
-    let env ← getEnv
-    if hasProof then "theorem"
-    else if isClass env name then "class"
-    else if isStructure env name then "structure"
-    else if Meta.isInstanceCore env name then "instance"
-    else -- check abbrev via ConstantInfo
-      match env.find? name with
-      | some (.defnInfo dv) => if dv.hints.isAbbrev then "abbrev" else "definition"
-      | _ => "definition"
-```
-
-Note: `mkStatementPart` is in `CoreM`, so `getEnv` is available.
-
-## No Changes Needed
-
-- **`isEligibleConstant`**: all 4 types already pass (`.inductInfo` and `.defnInfo` branches)
-- **`isAutoGenerated`**: already filters `mk`, `rec`, `recOn`, `casesOn`, etc.
-- **`isProjection`**: already catches structure projection functions
-- **`getShape`**: already maps all 4 type strings → `.box`
+**L460:** Add "Dress" and "Runway" to `choices=["SBSTest", "GCR", "PNT"]`
 
 ## Execution
 
-**Wave 1 — Implementation:** Single `sbs-developer` agent, all 3 files. Changes are small and tightly coupled.
+**Wave 1:** Single `sbs-developer` agent -- all changes are in 2 files, mechanical but extensive.
 
-**Wave 2 — Build + Verify:** Build SBS-Test via `./dev/build-sbs-test.sh`. Check `lean_diagnostic_messages`. Inspect coverage output for correct kind strings.
+**Wave 2:** Verify by building Dress via `lake build` in the project directory (already confirmed working from #342 build). Then test `sls_build_project("Dress")` and `sls_generate_graph("Dress")`.
 
 ## Verification
 
-1. `lean_diagnostic_messages` clean on both Dress and LeanArchitect
-2. SBS-Test builds successfully end-to-end
-3. Coverage uncovered list shows "structure"/"class"/"instance"/"abbrev" kind strings where applicable (instead of "inductive"/"def")
-4. Evergreen pytest: `pytest sbs/tests/pytest -m evergreen --tb=short`
-
-## Submodule Commit Order
-
-1. LeanArchitect: commit + push
-2. Dress: commit + push
-3. SBS: update submodule pointers, commit + push
-4. SLS: handled by `sls_update_and_archive`
+1. `sls_build_project("Dress")` returns success
+2. `sls_generate_graph("Dress")` generates graph with ~311 nodes
+3. `sls_build_project("Runway")` returns success (after Dress is pushed to git)
+4. MCP server restarts cleanly with new tool descriptions
