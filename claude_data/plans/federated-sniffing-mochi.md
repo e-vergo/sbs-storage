@@ -1,162 +1,175 @@
-# Issue #359: Environment-Based Declaration Discovery
+# Issue #359: Push & CI Deployment Plan
 
 ## Context
 
-Adding SBS to an existing Lean project requires annotating every declaration with `@[blueprint]` and importing Dress in every file. This is a significant adoption barrier. OSreconstruction (large existing project, zero SBS annotations) is the motivating example.
+Waves 1-3 are implemented and validated locally. All Lean code changes compile and the environment-based discovery feature works (tested on SBS-Test with untagged declarations: 23 nodes with correct auto-inferred edges).
 
-**Goal:** Dress scans the Lean environment for ALL project-local declarations automatically. `@[blueprint]` becomes optional enrichment metadata (description, informal statement/proof, manual status overrides). Manual dependency overrides (`uses`/`proofUses`) are removed entirely — dependencies are 100% inferred from expression trees.
+**Problem:** During local development, we switched Dress → LeanArchitect and SBS-Test → Dress from git deps to path deps. These path deps break CI because `dress-blueprint-action` uses federated checkout (clones each toolchain repo independently). We need to restore git deps and push in dependency order.
 
-## User Decisions
+**Additional work:** OSreconstruction needs a CI workflow file, runway.json, and git dep for Dress (not path dep).
 
-- AutoTag: **removed** (superseded by environment discovery)
-- `uses`/`proofUses`: **removed** from `@[blueprint]` attribute
-- Visual distinction for untagged declarations: **none**
-- `collectUsed` stop condition: **replaced entirely** (project-local eligible, not blueprintExt)
-- Filtering logic: **stays in Dress**, precomputed `NameSet` passed to `collectUsed`
-- Scope: **full pipeline**, validated on OSreconstruction
+## Push Sequence
 
-## Wave 1: LeanArchitect (upstream)
+Strict dependency order: LeanArchitect → Dress → {SBS-Test, PNT, OSreconstruction} → SBS monorepo
 
-### 1a. `Architect/CollectUsed.lean` — New stop condition
+### Step 1: Push LeanArchitect
 
-Add `eligibleNames : NameSet` to `CollectUsed.Context`. Replace stop condition:
+Repo: `e-vergo/LeanArchitect` (on `main`)
 
-```
--- Current (line 32):
-if c != root && (blueprintExt.find? env c).isSome then
--- New:
-if c != root && eligibleNames.contains c then
-```
+- Commit all changes (CollectUsed, Basic, Attribute, Output, RPC, ArchitectTest)
+- Push to origin main
 
-Update `collectUsed` signature: add `eligibleNames : NameSet` parameter. Thread it through to `Context`.
+### Step 2: Restore Dress git dep + push
 
-### 1b. `Architect/Basic.lean` — Strip `NodePart` dependency fields
+Repo: `e-vergo/Dress` (on `main`)
 
-Remove from `NodePart`: `uses`, `excludes`, `usesLabels`, `excludesLabels`
+- Revert `lakefile.lean` line 20 from path back to git:
+  ```lean
+  require LeanArchitect from git
+    "https://github.com/e-vergo/LeanArchitect.git" @ "main"
+  ```
+- Clean `.lake/packages/LeanArchitect` (stale path dep artifacts)
+- Run `lake update LeanArchitect` → updates `lake-manifest.json` from path to git dep with new commit hash
+- Rebuild Dress to verify (176 jobs, should reuse most cached oleans)
+- Commit all changes (Build.lean, deleted AutoTag, Main, Quickstart, Output, Latex, lakefile, manifest)
+- Push to origin main
 
-Remaining `NodePart`:
-```lean
-structure NodePart where
-  text : String
-  latexEnv : String
-```
+### Step 3a: Restore SBS-Test git dep + push
 
-Remove `register_option blueprint.ignoreUnknownConstants` and `tryResolveConst` (only existed for `uses` resolution).
+Repo: `e-vergo/SBS-Test` (on `main`)
 
-### 1c. `Architect/Attribute.lean` — Strip uses/proofUses from syntax and Config
+- Revert `lakefile.toml` from `path = "../Dress"` back to:
+  ```toml
+  git = "https://github.com/e-vergo/Dress.git"
+  rev = "main"
+  ```
+- Clean `.lake/packages/Dress` (stale path dep artifacts)
+- Run `lake update Dress` → manifest picks up new Dress commit
+- Rebuild SBS-Test + verify graph (21 nodes, 21 edges)
+- Commit and push to origin main
 
-Remove from `Config`: `uses`, `excludes`, `usesLabels`, `excludesLabels`, `proofUses`, `proofExcludes`, `proofUsesLabels`, `proofExcludesLabels`
+### Step 3b: Push PNT
 
-Remove syntax: `blueprintSingleUses`, `blueprintUses`, `blueprintUsesOption`, `blueprintProofUsesOption`, `elabBlueprintUses`
+Repo: `e-vergo/PrimeNumberTheoremAnd` (on `main`)
 
-Remove match arms in `elabBlueprintConfig` for `uses`/`proofUses`.
+- Commit the 2 files with `uses` removals
+- Push to origin main
 
-Update `mkStatementPart`/`mkProofPart` to not populate removed fields.
+### Step 3c: Set up OSreconstruction + push
 
-### 1d. `Architect/Output.lean` — Simplify `inferUses`
+Repo: `e-vergo/OSreconstruction` (on `clear-sorries-wave1-wave2`)
 
-`NodePart.inferUses` becomes a pure label resolution (no manual override merging):
-- Accept `resolveLabel : Name → Option String` parameter instead of reading `blueprintExt` directly
-- Just convert `collectUsed` output names to labels via the resolver
-- Remove exclude logic
-
-`Node.inferUses` accepts `eligibleNames` and `resolveLabel`, passes them through.
-
-### 1e. `Architect/RPC.lean` — Update BlueprintInfo
-
-Remove `dependencies` array exposure that sourced from `uses`/`usesLabels` (lines 87-91). Or replace with auto-inferred dependency display.
-
-## Wave 2: Dress (depends on Wave 1)
-
-### 2a. `Dress/Graph/Build.lean` — Core: expand `fromEnvironment`
-
-**New signature:**
-```lean
-def fromEnvironment (env : Environment) (projectModules : Array Name) : CoreM Graph
-```
-
-**New flow:**
-1. Compute `eligibleNames : NameSet` — all project-local eligible constants (reuse `isProjectModule`, `isEligibleConstant`, `isAutoGenerated`, `isProjection` filtering)
-2. Also insert all `blueprintExt` names into eligible set
-3. Build `resolveLabel` function: tagged → `latexLabel`, untagged → `Name.toString`
-4. For tagged declarations: build `NodeBuildData` with enrichment (existing path)
-5. For untagged declarations: build minimal `NodeBuildData` (name as label, auto-derived status/kind)
-6. Call `collectUsed` with `eligibleNames` for edge inference
-7. `buildGraph` with unified node data array
-
-### 2b. Delete `Dress/AutoTag.lean`
-
-445 lines, no longer needed.
-
-### 2c. `Main.lean` — Remove AutoTag CLI, update graph call
-
-- Remove `import Dress.AutoTag`
-- Remove `runAutoTagCmd`, `autoTagCmd`, and SUBCOMMANDS entry
-- Update `runGraphCmd`: `Graph.fromEnvironment (← getEnv) modules`
-
-### 2d. `Dress/Quickstart.lean` — Update quickstart instructions
-
-Line 431: Replace auto-tag suggestion with note about optional `@[blueprint]` enrichment.
-
-### 2e. `Dress/Output.lean` + `Dress/Generate/Latex.lean` — Update `inferUses` callers
-
-Pass `eligibleNames` and `resolveLabel` to all `inferUses` call sites. LaTeX output stays tagged-only (untagged declarations don't produce LaTeX artifacts).
-
-## Wave 3: Migration + Validation
-
-### 3a. SBS-Test `StatusDemo.lean` — Rewrite declarations
-
-19 `uses := [...]` entries establish artificial graph edges between trivial declarations. After removing `uses`, these become disconnected nodes. **Rewrite the demo declarations to have actual Lean code dependencies** so the graph structure is expression-inferred.
-
-### 3b. SBS-Test `ModuleRefTest.lean` — Remove `uses`
-
-1 occurrence. Remove `(uses := ["mod:first"])`.
-
-### 3c. PNT — Remove `uses`
-
-3 occurrences across 2 files. Remove and verify edges are auto-inferred.
-
-### 3d. OSreconstruction — Add Dress dependency
-
-Add to `lakefile.toml`:
+**lakefile.toml** — change Dress from path to git dep:
 ```toml
 [[require]]
 name = "Dress"
-path = "../../toolchain/Dress"
+git = "https://github.com/e-vergo/Dress.git"
+rev = "main"
 ```
 
-No `import Dress` needed in source files — graph is built from environment scan.
+**lean-toolchain** — align with Dress:
+```
+leanprover/lean4:v4.28.0-rc1
+```
 
-### 3e. Validation
+**runway.json** — create minimal config:
+```json
+{
+  "title": "OS Reconstruction",
+  "projectName": "OSReconstruction",
+  "githubUrl": "https://github.com/e-vergo/OSreconstruction",
+  "baseUrl": "/OSreconstruction/",
+  "docgen4Url": null,
+  "runwayDir": "runway",
+  "assetsDir": "../dress-blueprint-action/assets"
+}
+```
 
-1. Build LeanArchitect → Dress → SBS-Test (regression)
-2. Run `lake exe extract_blueprint graph SBSTest` — verify graph still works
-3. Build OSreconstruction with Dress dependency
-4. Run `lake exe extract_blueprint graph OSReconstruction` — verify graph includes all declarations
-5. Visual QA on SBS-Test to check graph renders correctly
-6. Run `sls_run_tests` for evergreen test suite
+**.github/workflows/full-blueprint-build-and-deploy.yml** — copy from SBS-Test (identical):
+```yaml
+name: Full Blueprint Build and Deploy
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: e-vergo/dress-blueprint-action@main
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@v4
+        id: deployment
+```
 
-## Key Files
+- Run `lake update` to generate `lake-manifest.json`
+- Do NOT build locally (mathlib takes hours) — CI handles it
+- Commit and push to origin `clear-sorries-wave1-wave2`
 
-| File | Change |
-|------|--------|
-| `forks/LeanArchitect/Architect/CollectUsed.lean` | eligibleNames stop condition |
-| `forks/LeanArchitect/Architect/Basic.lean` | Strip NodePart dependency fields |
-| `forks/LeanArchitect/Architect/Attribute.lean` | Strip uses/proofUses syntax + Config |
-| `forks/LeanArchitect/Architect/Output.lean` | Simplify inferUses (resolveLabel param) |
-| `forks/LeanArchitect/Architect/RPC.lean` | Update dependency display |
-| `toolchain/Dress/Dress/Graph/Build.lean` | fromEnvironment expansion (core change) |
-| `toolchain/Dress/Dress/AutoTag.lean` | DELETE |
-| `toolchain/Dress/Main.lean` | Remove AutoTag CLI, update graph call |
-| `toolchain/Dress/Dress/Quickstart.lean` | Update instructions |
-| `toolchain/Dress/Dress/Output.lean` | Update inferUses caller |
-| `toolchain/Dress/Dress/Generate/Latex.lean` | Update inferUses caller |
-| `toolchain/SBS-Test/SBSTest/StatusDemo.lean` | Rewrite for real dependencies |
-| `showcase/OSreconstruction/lakefile.toml` | Add Dress dependency |
+### Step 4: Update SBS monorepo pointers
+
+Repo: `e-vergo/Side-By-Side-Blueprint` (on `main`)
+
+- `git add` all modified submodule pointers (LeanArchitect, Dress, SBS-Test, PNT, OSreconstruction)
+- Commit: "feat: environment-based declaration discovery (#359)"
+- Push to origin main
+
+### Step 5: Update SLS pointer
+
+- `git add Side-By-Side-Blueprint`
+- Commit SLS
+- Push via `sbs archive upload` or subprocess
+
+## CI Expectations
+
+**SBS-Test CI:** Should pass — fully validated locally. Graph: 21 nodes, 21 edges.
+
+**OSreconstruction CI:** May fail on first run for reasons unrelated to our changes:
+- mathlib build from source (~2-4 hours on CI runner)
+- OSreconstruction source code has never been compiled by us
+- GaussianField (`rev = "main"`) compatibility unknown
+
+The `dress-blueprint-action` handles everything: it extracts versions from `lake-manifest.json`, clones toolchain repos (LeanArchitect, Dress, Runway, SubVerso) independently, builds in dependency order, generates graph + site. No import of Dress needed in source files.
+
+**deploy job gating**: `if: github.ref == 'refs/heads/main'` — since OSreconstruction pushes to `clear-sorries-wave1-wave2`, deploy won't run until merged to main. But the build job runs on any branch via `workflow_dispatch`.
+
+## Key Files Modified
+
+| Step | File | Change |
+|------|------|--------|
+| 2 | `toolchain/Dress/lakefile.lean` | Restore git dep for LeanArchitect |
+| 2 | `toolchain/Dress/lake-manifest.json` | Auto-updated by `lake update` |
+| 3a | `toolchain/SBS-Test/lakefile.toml` | Restore git dep for Dress |
+| 3a | `toolchain/SBS-Test/lake-manifest.json` | Auto-updated by `lake update` |
+| 3c | `showcase/OSreconstruction/lakefile.toml` | Dress git dep (replace path) |
+| 3c | `showcase/OSreconstruction/lean-toolchain` | v4.28.0-rc1 |
+| 3c | `showcase/OSreconstruction/runway.json` | NEW — site config |
+| 3c | `showcase/OSreconstruction/.github/workflows/...` | NEW — CI workflow |
+| 3c | `showcase/OSreconstruction/lake-manifest.json` | Auto-generated by `lake update` |
+
+## Verification
+
+1. After step 2: `lake build Dress` succeeds with git dep
+2. After step 3a: `lake build SBSTest` + `extract_blueprint graph` → 21 nodes
+3. After step 3c: `lake update` resolves in OSreconstruction (no build needed locally)
+4. After step 4: Trigger SBS-Test CI via workflow_dispatch → verify graph renders
+5. After step 3c push + user enables Pages: Trigger OSreconstruction CI → verify build + graph
 
 ## Risks
 
-- **StatusDemo rewrite**: The demo's artificial graph structure needs real Lean dependencies. This is the most creative part of the task.
-- **Large graph scale**: OSreconstruction may produce hundreds of nodes. SVG layout handles this (transitive reduction skips at >500 nodes).
-- **collectUsed performance**: Actually improves — more stop points = shorter traversal.
-- **Lean version compatibility**: OSreconstruction may be on a different Lean/mathlib version than Dress. May need version alignment.
+- **OSreconstruction CI build time**: Mathlib from source = 2-4 hours on GitHub runner. First run will be slow; subsequent runs use action's cache.
+- **OSreconstruction compilation**: Source code untested. If it fails to compile, that's a pre-existing issue unrelated to our changes.
+- **`lake update` in Dress/SBS-Test**: May pull newer versions of transitive deps (verso, subverso). Should be fine since they're pinned by rev in manifests.
